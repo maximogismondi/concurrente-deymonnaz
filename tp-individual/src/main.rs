@@ -72,8 +72,11 @@ fn main() {
     println!("Parsed {} records", deaths.len());
 
     // i want to transform the records as a map of
-    // player -> weapon -> count
-    // weapon -> [distance]
+    // player   -> weapon -> count
+    //          -> total
+
+    // weapon -> count
+    //        -> total distance
 
     let mut player_stats = deaths
         .iter()
