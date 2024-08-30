@@ -1,7 +1,10 @@
 mod deaths;
 
 use deaths::Deaths;
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader},
+};
 
 const CSV_EXTENSION: &str = "csv";
 const TOP_K: usize = 10;
@@ -18,7 +21,7 @@ fn main() {
     }
 
     let input_path = &args[1];
-    let num_threads = match args[2].parse::<usize>() {
+    let _num_threads = match args[2].parse::<usize>() {
         Ok(num) => num,
         Err(_) => {
             eprintln!("Invalid number of threads: {}", args[2]);
@@ -26,9 +29,11 @@ fn main() {
         }
     };
 
-    let output_file_name = &args[3];
+    let _output_file_name = &args[3];
 
     // find csv files in the input path
+
+    let start = std::time::Instant::now();
 
     let csv_files = match std::fs::read_dir(input_path) {
         Ok(files) => files
@@ -48,19 +53,29 @@ fn main() {
         }
     };
 
-    let deaths = csv_files.iter().map(|file| csv_file_to_deaths(&file)).fold(
-        Vec::new(),
-        |mut acc, deaths| {
-            acc.extend(deaths);
-            acc
-        },
-    );
+    // let deaths = csv_files.iter().map(|file| csv_file_to_deaths(&file)).fold(
+    //     Vec::new(),
+    //     |mut acc, deaths| {
+    //         acc.extend(deaths);
+    //         acc
+    //     },
+    // );
 
-    println!(
-        "Processing {} records with {} threads",
-        deaths.len(),
-        num_threads
-    );
+    let records = csv_files.iter().flat_map(|file| {
+        let file = std::fs::File::open(file).unwrap();
+        let reader = BufReader::new(file);
+        reader.lines()
+    });
+
+    let end_read = std::time::Instant::now();
+
+    let deaths = records
+        .filter_map(|line| line.ok())
+        .filter_map(|line| Deaths::from_csv_record(line).ok())
+        .collect::<Vec<_>>();
+
+    let end_parse = std::time::Instant::now();
+    println!("Parsed {} records", deaths.len());
 
     // now i want to process the records i want to make first the most letal wapon and the most letal player in a functional way i want the TOP_K most letal weapons and the TOP_K most letal players
 
@@ -73,6 +88,12 @@ fn main() {
         .into_iter()
         .collect::<Vec<_>>();
 
+    let mut most_letal_weapon = most_letal_weapon.iter().collect::<Vec<_>>();
+    most_letal_weapon.sort_by(|a, b| b.1.cmp(&a.1));
+    let most_letal_weapon = most_letal_weapon.iter().take(TOP_K).collect::<Vec<_>>();
+
+    let end_weapon = std::time::Instant::now();
+
     let most_letal_player = deaths
         .iter()
         .fold(HashMap::new(), |mut acc, death| {
@@ -82,13 +103,11 @@ fn main() {
         .into_iter()
         .collect::<Vec<_>>();
 
-    let mut most_letal_weapon = most_letal_weapon.iter().collect::<Vec<_>>();
-    most_letal_weapon.sort_by(|a, b| b.1.cmp(&a.1));
-    let most_letal_weapon = most_letal_weapon.iter().take(TOP_K).collect::<Vec<_>>();
-
     let mut most_letal_player = most_letal_player.iter().collect::<Vec<_>>();
     most_letal_player.sort_by(|a, b| b.1.cmp(&a.1));
     let most_letal_player = most_letal_player.iter().take(TOP_K).collect::<Vec<_>>();
+
+    let end_player = std::time::Instant::now();
 
     // PRINT THE RESULTS
 
@@ -101,35 +120,41 @@ fn main() {
     for (player, count) in most_letal_player {
         println!("{}: {}", player, count);
     }
+
+    println!("Reading: {:?}", end_read - start);
+    println!("Parsing: {:?}", end_parse - end_read);
+    println!("Weapon: {:?}", end_weapon - end_parse);
+    println!("Player: {:?}", end_player - end_weapon);
+    println!("Total: {:?}", end_player - start);
 }
 
-fn csv_file_to_deaths(file: &std::path::Path) -> Vec<Deaths> {
-    let file_name = match file.file_name().and_then(|name| name.to_str()) {
-        Some(name) => name,
-        None => {
-            eprintln!("Error getting file name");
-            std::process::exit(1);
-        }
-    };
+// fn csv_file_to_deaths(file: &std::path::Path) -> Vec<Deaths> {
+//     let file_name = match file.file_name().and_then(|name| name.to_str()) {
+//         Some(name) => name,
+//         None => {
+//             eprintln!("Error getting file name");
+//             std::process::exit(1);
+//         }
+//     };
 
-    // try to parse the file and if there is an error, print it and stop the parsing
+//     // try to parse the file and if there is an error, print it and stop the parsing
 
-    let file = match std::fs::read_to_string(&file) {
-        Ok(file) => file,
-        Err(e) => {
-            eprintln!("Error reading file {}: {}", file_name, e);
-            std::process::exit(1);
-        }
-    };
+//     let file = match std::fs::read_to_string(&file) {
+//         Ok(file) => file,
+//         Err(e) => {
+//             eprintln!("Error reading file {}: {}", file_name, e);
+//             std::process::exit(1);
+//         }
+//     };
 
-    // i want to check if the records are valid before collecting them and if they are not valid, i want to print the error and continue to the next record
+//     // i want to check if the records are valid before collecting them and if they are not valid, i want to print the error and continue to the next record
 
-    let deaths = file
-        .lines()
-        .filter_map(|line| Deaths::from_csv_record(line.to_string()).ok())
-        .collect::<Vec<_>>();
+//     let deaths = file
+//         .lines()
+//         .filter_map(|line| Deaths::from_csv_record(line.to_string()).ok())
+//         .collect::<Vec<_>>();
 
-    println!("Parsed {} records from {}", deaths.len(), file_name);
+//     println!("Parsed {} records from {}", deaths.len(), file_name);
 
-    deaths
-}
+//     deaths
+// }
