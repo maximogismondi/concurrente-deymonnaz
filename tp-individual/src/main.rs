@@ -7,7 +7,9 @@ use std::{
 };
 
 const CSV_EXTENSION: &str = "csv";
-const TOP_K: usize = 10;
+const TOP_K_PLAYERS: usize = 10;
+const TOP_K_WEAPONS: usize = 10;
+const TOP_K_WEAPONS_OF_PLAYER: usize = 3;
 
 fn main() {
     let args = std::env::args().collect::<Vec<String>>();
@@ -53,14 +55,6 @@ fn main() {
         }
     };
 
-    // let deaths = csv_files.iter().map(|file| csv_file_to_deaths(&file)).fold(
-    //     Vec::new(),
-    //     |mut acc, deaths| {
-    //         acc.extend(deaths);
-    //         acc
-    //     },
-    // );
-
     let records = csv_files.iter().flat_map(|file| {
         let file = std::fs::File::open(file).unwrap();
         let reader = BufReader::new(file);
@@ -77,84 +71,99 @@ fn main() {
     let end_parse = std::time::Instant::now();
     println!("Parsed {} records", deaths.len());
 
-    // now i want to process the records i want to make first the most letal wapon and the most letal player in a functional way i want the TOP_K most letal weapons and the TOP_K most letal players
+    // i want to transform the records as a map of
+    // player -> weapon -> count
+    // weapon -> [distance]
 
-    let most_letal_weapon = deaths
+    let mut player_stats = deaths
         .iter()
         .fold(HashMap::new(), |mut acc, death| {
-            *acc.entry(&death.killed_by).or_insert(0) += 1;
+            let player = acc.entry(&death.killer_name).or_insert((HashMap::new(), 0));
+            *player.0.entry(&death.killed_by).or_insert(0) += 1;
+            player.1 += 1;
             acc
         })
         .into_iter()
         .collect::<Vec<_>>();
 
-    let mut most_letal_weapon = most_letal_weapon.iter().collect::<Vec<_>>();
-    most_letal_weapon.sort_by(|a, b| b.1.cmp(&a.1));
-    let most_letal_weapon = most_letal_weapon.iter().take(TOP_K).collect::<Vec<_>>();
+    player_stats.sort_by(|a, b| {
+        let a = a.1 .1;
+        let b = b.1 .1;
+        b.cmp(&a)
+    });
+    let most_letal_player = player_stats
+        .iter()
+        .take(TOP_K_PLAYERS)
+        .map(|(player, stats)| {
+            let total = stats.1;
+            let mut weapons = stats.0.iter().collect::<Vec<_>>();
+            weapons.sort_by(|a, b| {
+                let a = a.1;
+                let b = b.1;
+                b.cmp(&a)
+            });
+            let player_lethal_weapon = weapons
+                .iter()
+                .take(TOP_K_WEAPONS_OF_PLAYER)
+                .map(|(weapon, count)| (*weapon, *count))
+                .collect::<Vec<_>>();
 
-    let end_weapon = std::time::Instant::now();
+            (player, total, player_lethal_weapon)
+        });
 
-    let most_letal_player = deaths
+    let end_players = std::time::Instant::now();
+
+    // save sum and count for each weapon
+
+    let mut weapon_stats = deaths
         .iter()
         .fold(HashMap::new(), |mut acc, death| {
-            *acc.entry(&death.killer_name).or_insert(0) += 1;
+            let weapon = acc.entry(&death.killed_by).or_insert((0.0, 0));
+            weapon.0 += death.distance();
+            weapon.1 += 1;
             acc
         })
         .into_iter()
         .collect::<Vec<_>>();
 
-    let mut most_letal_player = most_letal_player.iter().collect::<Vec<_>>();
-    most_letal_player.sort_by(|a, b| b.1.cmp(&a.1));
-    let most_letal_player = most_letal_player.iter().take(TOP_K).collect::<Vec<_>>();
+    // sort by count
+    weapon_stats.sort_by(|a, b| {
+        let a = a.1 .1;
+        let b = b.1 .1;
+        b.cmp(&a)
+    });
 
-    let end_player = std::time::Instant::now();
+    let most_letal_weapon = weapon_stats
+        .iter()
+        .take(TOP_K_WEAPONS)
+        .map(|(weapon, stats)| {
+            let total = stats.1;
+            let distance = stats.0 / total as f32;
+            (weapon, total, distance)
+        });
+
+    let end_weapons = std::time::Instant::now();
 
     // PRINT THE RESULTS
 
-    println!("Most letal weapons:");
-    for (weapon, count) in most_letal_weapon {
-        println!("{}: {}", weapon, count);
+    println!("Most letal players:");
+    for (player, total, weapons) in most_letal_player {
+        println!("{}: {}", player, total);
+        for (weapon, count) in weapons {
+            let percentage = (*count as f32 / total as f32 * 100.0).round() / 100.0;
+            println!("  {}: ({:.2}%)", weapon, percentage);
+        }
     }
 
-    println!("Most letal players:");
-    for (player, count) in most_letal_player {
-        println!("{}: {}", player, count);
+    println!("Most letal weapons:");
+    for (weapon, total, distance) in most_letal_weapon {
+        println!("{}: {}", weapon, total);
+        println!("  Average distance: {:.2}", distance);
     }
 
     println!("Reading: {:?}", end_read - start);
     println!("Parsing: {:?}", end_parse - end_read);
-    println!("Weapon: {:?}", end_weapon - end_parse);
-    println!("Player: {:?}", end_player - end_weapon);
-    println!("Total: {:?}", end_player - start);
+    println!("Weapon: {:?}", end_players - end_parse);
+    println!("Player: {:?}", end_weapons - end_players);
+    println!("Total: {:?}", end_weapons - start);
 }
-
-// fn csv_file_to_deaths(file: &std::path::Path) -> Vec<Deaths> {
-//     let file_name = match file.file_name().and_then(|name| name.to_str()) {
-//         Some(name) => name,
-//         None => {
-//             eprintln!("Error getting file name");
-//             std::process::exit(1);
-//         }
-//     };
-
-//     // try to parse the file and if there is an error, print it and stop the parsing
-
-//     let file = match std::fs::read_to_string(&file) {
-//         Ok(file) => file,
-//         Err(e) => {
-//             eprintln!("Error reading file {}: {}", file_name, e);
-//             std::process::exit(1);
-//         }
-//     };
-
-//     // i want to check if the records are valid before collecting them and if they are not valid, i want to print the error and continue to the next record
-
-//     let deaths = file
-//         .lines()
-//         .filter_map(|line| Deaths::from_csv_record(line.to_string()).ok())
-//         .collect::<Vec<_>>();
-
-//     println!("Parsed {} records from {}", deaths.len(), file_name);
-
-//     deaths
-// }

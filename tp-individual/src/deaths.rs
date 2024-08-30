@@ -49,4 +49,10 @@ impl Deaths {
             victim_position_y,
         })
     }
+
+    pub fn distance(&self) -> f32 {
+        let dx = self.killer_position_x - self.victim_position_x;
+        let dy = self.killer_position_y - self.victim_position_y;
+        (dx * dx + dy * dy).sqrt()
+    }
 }
