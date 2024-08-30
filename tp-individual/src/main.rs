@@ -6,6 +6,8 @@ use std::{
     io::{BufRead, BufReader},
 };
 
+use rayon::prelude::*;
+
 const CSV_EXTENSION: &str = "csv";
 const TOP_K_PLAYERS: usize = 10;
 const TOP_K_WEAPONS: usize = 10;
@@ -23,7 +25,7 @@ fn main() {
     }
 
     let input_path = &args[1];
-    let _num_threads = match args[2].parse::<usize>() {
+    let num_threads = match args[2].parse::<usize>() {
         Ok(num) => num,
         Err(_) => {
             eprintln!("Invalid number of threads: {}", args[2]);
@@ -32,6 +34,11 @@ fn main() {
     };
 
     let _output_file_name = &args[3];
+
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build_global()
+        .unwrap();
 
     // find csv files in the input path
 
@@ -55,21 +62,19 @@ fn main() {
         }
     };
 
-    let records = csv_files.iter().flat_map(|file| {
-        let file = std::fs::File::open(file).unwrap();
-        let reader = BufReader::new(file);
-        reader.lines()
-    });
-
-    let end_read = std::time::Instant::now();
-
-    let deaths = records
+    let deaths = csv_files
+        .par_iter() // Parallelize the iteration over csv_files
+        .flat_map(|file| {
+            let file = std::fs::File::open(file).unwrap();
+            let reader = BufReader::new(file);
+            reader.lines().skip(1).par_bridge()
+        })
         .filter_map(|line| line.ok())
         .filter_map(|line| Deaths::from_csv_record(line).ok())
         .collect::<Vec<_>>();
 
     let end_parse = std::time::Instant::now();
-    println!("Parsed {} records", deaths.len());
+    println!("End parsing: {:?}", end_parse - start);
 
     // i want to transform the records as a map of
     // player   -> weapon -> count
@@ -115,6 +120,7 @@ fn main() {
         });
 
     let end_players = std::time::Instant::now();
+    println!("End players: {:?}", end_players - end_parse);
 
     // save sum and count for each weapon
 
@@ -146,6 +152,7 @@ fn main() {
         });
 
     let end_weapons = std::time::Instant::now();
+    println!("End weapons: {:?}", end_weapons - end_players);
 
     // PRINT THE RESULTS
 
@@ -163,10 +170,6 @@ fn main() {
         println!("{}: {}", weapon, total);
         println!("  Average distance: {:.2}", distance);
     }
-
-    println!("Reading: {:?}", end_read - start);
-    println!("Parsing: {:?}", end_parse - end_read);
-    println!("Weapon: {:?}", end_players - end_parse);
-    println!("Player: {:?}", end_weapons - end_players);
+    println!();
     println!("Total: {:?}", end_weapons - start);
 }
