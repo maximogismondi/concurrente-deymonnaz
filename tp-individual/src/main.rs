@@ -9,7 +9,7 @@ use std::{
 use rayon::prelude::*;
 use serde_json::json;
 
-const PADRON: &str = "110119";
+const PADRON: usize = 110119;
 
 const CSV_EXTENSION: &str = "csv";
 const TOP_K_PLAYERS: usize = 10;
@@ -110,7 +110,11 @@ fn main() {
             let player_lethal_weapon = weapons
                 .iter()
                 .take(TOP_K_WEAPONS_OF_PLAYER)
-                .map(|(&weapon, &count)| (weapon.to_string(), count as f32 / total as f32 * 100.0))
+                .map(|(&weapon, &count)| {
+                    let weapon = weapon.to_string();
+                    let percentage = count as f32 / total as f32 * 100.0;
+                    (weapon, percentage)
+                })
                 .collect();
             (player.clone(), total, player_lethal_weapon)
         })
@@ -186,25 +190,21 @@ fn save_as_json(
     let json = json!({
         "padron": PADRON,
         "top_killers": most_letal_player.iter().map(|(player, total, weapons)| {
-            json!({
-                player.to_string(): {
-                    "deaths": total,
-                    "weapons_percentage": weapons.iter().map(|(weapon, percentage)| {
-                        json!({
-                            weapon.to_string(): percentage
-                        })
-                    }).collect::<Vec<_>>()
-                }
-            })
-        }).collect::<Vec<_>>(),
+            let weapon_percentages: HashMap<_, _> = weapons.iter().map(|(weapon, percentage)| {
+                (weapon.to_string(), format!("{:.2}", percentage))
+            }).collect();
+
+            (player.to_string(), json!({
+                "deaths": total,
+                "weapons_percentage": weapon_percentages
+            }))
+        }).collect::<HashMap<_, _>>(),
         "top_weapons": most_letal_weapon.iter().map(|(weapon, deaths_percentage, average_distance)| {
-            json!({
-                weapon.to_string(): {
-                    "deaths_percentage": deaths_percentage,
-                    "average_distance": average_distance
-                }
-            })
-        }).collect::<Vec<_>>()
+            (weapon.to_string(), json!({
+                "deaths_percentage": format!("{:.2}", deaths_percentage),
+                "average_distance": format!("{:.2}", average_distance)
+            }))
+        }).collect::<HashMap<_, _>>()
     });
 
     let json_str = serde_json::to_string_pretty(&json).unwrap();
