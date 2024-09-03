@@ -26,6 +26,8 @@ CSV
 
 ```csv
 killed_by,killer_name,killer_placement,killer_position_x,killer_position_y,map,match_id,time,victim_name,victim_placement,victim_position_x,victim_position_y
+Bluezone,,,,,MIRAMAR,2U4GBNA0YmkBbLEF24GGKLLAPoDQjAD8DoJFecsw9jUiNEkyvGCnOFxmxlo9x0cc,1505,0932313woaini,7.0,495367.2,419491.3
+
 ```
 
 ### Deaths example

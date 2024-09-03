@@ -7,6 +7,9 @@ use std::{
 };
 
 use rayon::prelude::*;
+use serde_json::json;
+
+const PADRON: &str = "110119";
 
 const CSV_EXTENSION: &str = "csv";
 const TOP_K_PLAYERS: usize = 10;
@@ -33,7 +36,7 @@ fn main() {
         }
     };
 
-    let _output_file_name = &args[3];
+    let output_file_name = &args[3];
 
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
@@ -83,7 +86,7 @@ fn main() {
     // weapon -> count
     //        -> total distance
 
-    let mut player_stats = deaths
+    let mut player_stats: Vec<_> = deaths
         .iter()
         .fold(HashMap::new(), |mut acc, death| {
             let player = acc.entry(&death.killer_name).or_insert((HashMap::new(), 0));
@@ -92,39 +95,33 @@ fn main() {
             acc
         })
         .into_iter()
-        .collect::<Vec<_>>();
+        .map(|(player, (weapons, total))| (player.to_string(), (weapons, total)))
+        .collect();
 
-    player_stats.sort_by(|a, b| {
-        let a = a.1 .1;
-        let b = b.1 .1;
-        b.cmp(&a)
-    });
-    let most_letal_player = player_stats
+    player_stats.sort_by(|a, b| b.1 .1.cmp(&a.1 .1));
+
+    let most_lethal_player: Vec<_> = player_stats
         .iter()
         .take(TOP_K_PLAYERS)
         .map(|(player, stats)| {
             let total = stats.1;
-            let mut weapons = stats.0.iter().collect::<Vec<_>>();
-            weapons.sort_by(|a, b| {
-                let a = a.1;
-                let b = b.1;
-                b.cmp(&a)
-            });
+            let mut weapons: Vec<_> = stats.0.iter().collect();
+            weapons.sort_by(|a, b| b.1.cmp(a.1));
             let player_lethal_weapon = weapons
                 .iter()
                 .take(TOP_K_WEAPONS_OF_PLAYER)
-                .map(|(weapon, count)| (*weapon, *count))
-                .collect::<Vec<_>>();
-
-            (player, total, player_lethal_weapon)
-        });
+                .map(|(&weapon, &count)| (weapon.to_string(), count as f32 / total as f32 * 100.0))
+                .collect();
+            (player.clone(), total, player_lethal_weapon)
+        })
+        .collect();
 
     let end_players = std::time::Instant::now();
     println!("End players: {:?}", end_players - end_parse);
 
     // save sum and count for each weapon
 
-    let mut weapon_stats = deaths
+    let mut weapon_stats: Vec<_> = deaths
         .iter()
         .fold(HashMap::new(), |mut acc, death| {
             let weapon = acc.entry(&death.killed_by).or_insert((0.0, 0));
@@ -133,43 +130,83 @@ fn main() {
             acc
         })
         .into_iter()
-        .collect::<Vec<_>>();
+        .map(|(weapon, (total_distance, count))| {
+            (
+                weapon.to_string(),
+                count as f32 / deaths.len() as f32 * 100.0,
+                total_distance / count as f32,
+            )
+        })
+        .collect();
 
-    // sort by count
-    weapon_stats.sort_by(|a, b| {
-        let a = a.1 .1;
-        let b = b.1 .1;
-        b.cmp(&a)
-    });
+    weapon_stats.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
-    let most_letal_weapon = weapon_stats
+    let most_lethal_weapon = weapon_stats
         .iter()
         .take(TOP_K_WEAPONS)
-        .map(|(weapon, stats)| {
-            let total = stats.1;
-            let distance = stats.0 / total as f32;
-            (weapon, total, distance)
-        });
+        .cloned()
+        .collect::<Vec<_>>();
 
     let end_weapons = std::time::Instant::now();
     println!("End weapons: {:?}", end_weapons - end_players);
 
+    // SAVE AS JSON
+
+    save_as_json(most_lethal_player, most_lethal_weapon, output_file_name);
+
     // PRINT THE RESULTS
 
-    println!("Most letal players:");
-    for (player, total, weapons) in most_letal_player {
-        println!("{}: {}", player, total);
-        for (weapon, count) in weapons {
-            let percentage = (*count as f32 / total as f32 * 100.0).round() / 100.0;
-            println!("  {}: ({:.2}%)", weapon, percentage);
-        }
-    }
+    // println!();
+    // println!("Most letal players:");
+    // for (player, total, weapons) in most_letal_player {
+    //     println!("{}", player);
+    //     println!("  Total kills: {}", total);
+    //     println!("  Weapons:");
+    //     for (weapon, percentage) in weapons {
+    //         println!("    {}: {:.2}%", weapon, percentage);
+    //     }
+    // }
 
-    println!("Most letal weapons:");
-    for (weapon, total, distance) in most_letal_weapon {
-        println!("{}: {}", weapon, total);
-        println!("  Average distance: {:.2}", distance);
-    }
-    println!();
+    // println!();
+    // println!("Most letal weapons:");
+    // for (weapon, kills_percentaje, distance) in most_letal_weapon {
+    //     println!("{}", weapon);
+    //     println!("  Kills percentage: {:.2}%", kills_percentaje);
+    //     println!("  Average distance: {:.2}", distance);
+    // }
+    // println!();
     println!("Total: {:?}", end_weapons - start);
+}
+
+fn save_as_json(
+    most_letal_player: Vec<(String, usize, Vec<(String, f32)>)>,
+    most_letal_weapon: Vec<(String, f32, f32)>,
+    output_path: &str,
+) {
+    let json = json!({
+        "padron": PADRON,
+        "top_killers": most_letal_player.iter().map(|(player, total, weapons)| {
+            json!({
+                player.to_string(): {
+                    "deaths": total,
+                    "weapons_percentage": weapons.iter().map(|(weapon, percentage)| {
+                        json!({
+                            weapon.to_string(): percentage
+                        })
+                    }).collect::<Vec<_>>()
+                }
+            })
+        }).collect::<Vec<_>>(),
+        "top_weapons": most_letal_weapon.iter().map(|(weapon, deaths_percentage, average_distance)| {
+            json!({
+                weapon.to_string(): {
+                    "deaths_percentage": deaths_percentage,
+                    "average_distance": average_distance
+                }
+            })
+        }).collect::<Vec<_>>()
+    });
+
+    let json_str = serde_json::to_string_pretty(&json).unwrap();
+    std::fs::write(output_path, json_str).unwrap();
 }
