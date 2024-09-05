@@ -1,4 +1,4 @@
-pub struct Deaths {
+pub struct Death {
     pub killed_by: String,
     pub killer_name: String,
     // killer_placement: f32,
@@ -13,7 +13,7 @@ pub struct Deaths {
     victim_position_y: f32,
 }
 
-impl Deaths {
+impl Death {
     pub fn from_csv_record(record: String) -> Result<Self, String> {
         let fields = record.split(',').collect::<Vec<_>>();
 
