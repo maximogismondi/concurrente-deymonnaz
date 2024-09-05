@@ -5,8 +5,8 @@ use serde_json::json;
 use crate::{player_stats::PlayerStats, weapon_stats::WeaponStats, PADRON};
 
 pub fn save_as_json(
-    top_killers: Vec<(&String, PlayerStats)>,
-    most_letal_weapons: Vec<(&String, WeaponStats)>,
+    top_killers: HashMap<&String, PlayerStats>,
+    most_letal_weapons: HashMap<&String, WeaponStats>,
     output_path: &str,
     total_deaths: usize,
 ) {

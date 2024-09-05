@@ -3,6 +3,7 @@ mod deaths;
 mod file_reading;
 mod json_writting;
 mod player_stats;
+mod sorting;
 mod weapon_stats;
 
 use args_reading::read_args;

@@ -1,7 +1,6 @@
-use rayon::prelude::*;
 use std::collections::HashMap;
 
-use crate::deaths::Death;
+use crate::{deaths::Death, sorting::find_top_elements};
 
 pub type PlayerWeaponStats = HashMap<String, usize>;
 
@@ -26,20 +25,9 @@ impl PlayerStats {
             self.weapons.insert(weapon.to_string(), 1);
         }
     }
-
-    pub fn _merge(&mut self, other: &mut PlayerStats) {
-        self.total += other.total;
-        for (weapon, count) in other.weapons.iter() {
-            if let Some(self_count) = self.weapons.get_mut(weapon) {
-                *self_count += count;
-            } else {
-                self.weapons.insert(weapon.to_string(), *count);
-            }
-        }
-    }
 }
 
-pub fn player_stats_from_deaths(deaths: &Vec<Death>) -> Vec<(&String, PlayerStats)> {
+pub fn player_stats_from_deaths(deaths: &Vec<Death>) -> HashMap<&String, PlayerStats> {
     deaths
         .iter()
         .fold(
@@ -59,42 +47,33 @@ pub fn player_stats_from_deaths(deaths: &Vec<Death>) -> Vec<(&String, PlayerStat
 }
 
 pub fn get_top_killers(
-    mut player_stats: Vec<(&String, PlayerStats)>,
+    player_stats: HashMap<&String, PlayerStats>,
     player_count: usize,
     weapon_count: usize,
-) -> Vec<(&String, PlayerStats)> {
-    player_stats.par_sort_by(|a, b| {
-        let a = a.1.total;
-        let b = b.1.total;
+) -> HashMap<&String, PlayerStats> {
+    find_top_elements(player_stats, player_count, |a, b| {
+        let a = a.total;
+        let b = b.total;
         b.cmp(&a)
-    });
-
-    player_stats.truncate(player_count);
-
-    player_stats
-        .par_iter()
-        .map(|(name, stats)| {
-            let name = *name;
-            let total = stats.total;
-            let weapons = get_top_weapons(&stats.weapons, weapon_count);
-            (name, PlayerStats { total, weapons })
-        })
-        .collect()
+    })
+    .into_iter()
+    .map(|(name, stats)| {
+        let weapons = get_top_weapons(stats.weapons, weapon_count);
+        (
+            name,
+            PlayerStats {
+                total: stats.total,
+                weapons,
+            },
+        )
+    })
+    .collect()
 }
 
-fn get_top_weapons(weapons_stats: &PlayerWeaponStats, weapon_count: usize) -> PlayerWeaponStats {
-    let mut weapons: Vec<(&String, &usize)> = weapons_stats.iter().collect();
-
-    weapons.par_sort_by(|a, b| {
-        let a = a.1;
-        let b = b.1;
+pub fn get_top_weapons(weapon_stats: PlayerWeaponStats, weapon_count: usize) -> PlayerWeaponStats {
+    find_top_elements(weapon_stats, weapon_count, |a, b| {
+        let a = *a;
+        let b = *b;
         b.cmp(&a)
-    });
-
-    weapons.truncate(weapon_count);
-
-    weapons
-        .into_iter()
-        .map(|(name, count)| (name.to_string(), *count))
-        .collect()
+    })
 }
