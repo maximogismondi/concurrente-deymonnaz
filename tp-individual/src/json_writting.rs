@@ -14,7 +14,7 @@ pub fn save_as_json(
         "padron": PADRON,
         "top_killers": top_killers.iter().map(|(player_name, stats)| {
             let weapon_percentages: HashMap<_, _> = stats.weapons.iter().map(|(weapon, count)| {
-                (weapon.clone(), format!("{:.2}", *count as f32 / stats.total as f32))
+                (weapon.clone(), format!("{:.2}", *count as f32 / stats.total as f32 * 100.0))
             }).collect();
 
             (player_name, json!({
@@ -24,8 +24,8 @@ pub fn save_as_json(
         }).collect::<HashMap<_, _>>(),
         "top_weapons": most_letal_weapons.iter().map(|(name, weapon)| {
             (name, json!({
-                "total_kills": format!("{:.2}", weapon.count as f32 / total_deaths as f32),
-                "average_distance": format!("{:.2}", weapon.total_distance / weapon.count as f32)
+                "total_kills": format!("{:.2}", weapon.count as f32 / total_deaths as f32 * 100.0),
+                "average_distance": format!("{:.2}", weapon.total_distance / weapon.count as f32 * 100.0)
             }))
         }).collect::<HashMap<_, _>>()
     });
