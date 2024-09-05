@@ -21,7 +21,7 @@ impl WeaponStats {
     }
 }
 
-pub fn weapon_stats_from_deaths(deaths: &Vec<Death>) -> HashMap<&String, WeaponStats> {
+pub fn weapon_stats_from_deaths(deaths: &[Death]) -> HashMap<&String, WeaponStats> {
     deaths.iter().fold(
         HashMap::new(),
         |mut acc: HashMap<&String, WeaponStats>, death| {

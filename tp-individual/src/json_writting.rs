@@ -25,7 +25,7 @@ pub fn save_as_json(
         "top_weapons": most_letal_weapons.iter().map(|(name, weapon)| {
             (name, json!({
                 "total_kills": (weapon.count as f64 / total_deaths as f64 * 10000f64).round() / 100f64,
-                "average_distance": (weapon.total_distance as f64 / weapon.count as f64 * 100f64).round() / 100f64
+                "average_distance": (weapon.total_distance / weapon.count as f64 * 100f64).round() / 100f64
             }))
         }).collect::<HashMap<_, _>>()
     });

@@ -27,7 +27,7 @@ impl PlayerStats {
     }
 }
 
-pub fn player_stats_from_deaths(deaths: &Vec<Death>) -> HashMap<&String, PlayerStats> {
+pub fn player_stats_from_deaths(deaths: &[Death]) -> HashMap<&String, PlayerStats> {
     deaths
         .iter()
         .fold(
