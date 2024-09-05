@@ -68,19 +68,6 @@ pub fn player_stats_from_deaths(deaths: &Vec<Death>) -> Vec<(&String, PlayerStat
         )
         .into_iter()
         .collect()
-
-    // deaths.iter().fold(HashMap::new(), |mut acc, death| {
-    //     if let Some(stats) = acc.get_mut(&death.killer_name) {
-    //         stats.add_death(&death.killed_by);
-    //     } else {
-    //         acc.insert(
-    //             death.killer_name.clone(),
-    //             PlayerStats::new(&death.killed_by),
-    //         );
-    //     }
-
-    //     acc
-    // })
 }
 
 pub fn get_top_killers(
@@ -108,20 +95,18 @@ pub fn get_top_killers(
 }
 
 fn get_top_weapons(weapons_stats: &PlayerWeaponStats, weapon_count: usize) -> PlayerWeaponStats {
-    let mut weapon_names: Vec<&String> = weapons_stats.keys().collect();
+    let mut weapons: Vec<(&String, &usize)> = weapons_stats.iter().collect();
 
-    weapon_names.par_sort_by(|a, b| {
-        let a = weapons_stats.get(*a).unwrap();
-        let b = weapons_stats.get(*b).unwrap();
+    weapons.par_sort_by(|a, b| {
+        let a = a.1;
+        let b = b.1;
         b.cmp(&a)
     });
 
-    weapon_names
-        .par_iter()
-        .take(weapon_count)
-        .map(|name| {
-            let count = weapons_stats.get(*name).unwrap();
-            (name.to_string(), *count)
-        })
+    weapons.truncate(weapon_count);
+
+    weapons
+        .into_iter()
+        .map(|(name, count)| (name.to_string(), *count))
         .collect()
 }
