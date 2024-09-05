@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use std::collections::HashMap;
 
 use crate::deaths::Death;
@@ -25,66 +26,102 @@ impl PlayerStats {
             self.weapons.insert(weapon.to_string(), 1);
         }
     }
+
+    pub fn merge(&mut self, other: &mut PlayerStats) {
+        self.total += other.total;
+        for (weapon, count) in other.weapons.iter() {
+            if let Some(self_count) = self.weapons.get_mut(weapon) {
+                *self_count += count;
+            } else {
+                self.weapons.insert(weapon.to_string(), *count);
+            }
+        }
+    }
 }
 
-pub fn player_stats_from_deaths(deaths: &Vec<Death>) -> HashMap<String, PlayerStats> {
-    deaths.iter().fold(HashMap::new(), |mut acc, death| {
-        if let Some(stats) = acc.get_mut(&death.killer_name) {
-            stats.add_death(&death.killed_by);
-        } else {
-            acc.insert(
-                death.killer_name.clone(),
-                PlayerStats::new(&death.killed_by),
-            );
-        }
+pub fn player_stats_from_deaths(deaths: &Vec<Death>) -> Vec<(&String, PlayerStats)> {
+    deaths
+        .par_iter()
+        .fold(
+            || HashMap::new(),
+            |mut acc, death| {
+                acc.entry(&death.killer_name)
+                    .or_insert_with(|| PlayerStats::new(&death.killed_by))
+                    .add_death(&death.killed_by);
 
-        acc
-    })
+                acc
+            },
+        )
+        .reduce(
+            || HashMap::new(),
+            |mut acc, map| {
+                for (player, mut stats) in map {
+                    acc.entry(player)
+                        .or_insert_with(|| PlayerStats {
+                            total: 0,
+                            weapons: HashMap::new(),
+                        })
+                        .merge(&mut stats);
+                }
+                acc
+            },
+        )
+        .into_iter()
+        .collect()
+
+    // deaths.iter().fold(HashMap::new(), |mut acc, death| {
+    //     if let Some(stats) = acc.get_mut(&death.killer_name) {
+    //         stats.add_death(&death.killed_by);
+    //     } else {
+    //         acc.insert(
+    //             death.killer_name.clone(),
+    //             PlayerStats::new(&death.killed_by),
+    //         );
+    //     }
+
+    //     acc
+    // })
 }
 
 pub fn get_top_killers(
-    player_stats: HashMap<String, PlayerStats>,
+    mut player_stats: Vec<(&String, PlayerStats)>,
     player_count: usize,
     weapon_count: usize,
-) -> HashMap<String, PlayerStats> {
-    let mut player_names: Vec<&String> = player_stats.keys().collect();
-
-    player_names.sort_by(|a, b| {
-        let a = player_stats.get(*a).unwrap().total;
-        let b = player_stats.get(*b).unwrap().total;
+) -> Vec<(&String, PlayerStats)> {
+    player_stats.par_sort_by(|a, b| {
+        let a = a.1.total;
+        let b = b.1.total;
         b.cmp(&a)
     });
 
-    let most_lethal_players: HashMap<String, PlayerStats> = player_names
-        .iter()
-        .take(player_count)
-        .map(|name| {
-            let stats = player_stats.get(*name).unwrap();
+    player_stats.truncate(player_count);
+
+    player_stats
+        .par_iter()
+        .map(|(name, stats)| {
+            let name = *name;
             let total = stats.total;
-
-            let weapons: PlayerWeaponStats = get_top_weapons(stats.weapons.clone(), weapon_count);
-
-            (name.to_string(), PlayerStats { total, weapons })
+            let weapons = get_top_weapons(&stats.weapons, weapon_count);
+            (name, PlayerStats { total, weapons })
         })
-        .collect();
-
-    most_lethal_players
+        .collect()
 }
 
-fn get_top_weapons(weapons_stats: PlayerWeaponStats, weapon_count: usize) -> PlayerWeaponStats {
+fn get_top_weapons(weapons_stats: &PlayerWeaponStats, weapon_count: usize) -> PlayerWeaponStats {
     let mut weapon_names: Vec<&String> = weapons_stats.keys().collect();
 
-    weapon_names.sort_by(|a, b| {
+    weapon_names.par_sort_by(|a, b| {
         let a = weapons_stats.get(*a).unwrap();
         let b = weapons_stats.get(*b).unwrap();
         b.cmp(&a)
     });
 
-    let most_lethal_weapons: PlayerWeaponStats = weapon_names
-        .iter()
+    weapon_names
+        .par_iter()
         .take(weapon_count)
-        .map(|weapon| (weapon.to_string(), *weapons_stats.get(*weapon).unwrap()))
-        .collect();
-
-    most_lethal_weapons
+        .map(|name| {
+            let count = weapons_stats.get(*name).unwrap();
+            (name.to_string(), *count)
+        })
+        .collect()
 }

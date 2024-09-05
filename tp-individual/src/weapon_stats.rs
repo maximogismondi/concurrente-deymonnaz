@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use std::collections::HashMap;
 
 use crate::deaths::Death;
@@ -19,49 +20,54 @@ impl WeaponStats {
         self.count += 1;
         self.total_distance += distance;
     }
+
+    pub fn merge(&mut self, other: &mut WeaponStats) {
+        self.count += other.count;
+        self.total_distance += other.total_distance;
+    }
 }
 
-pub fn weapon_stats_from_deaths(deaths: &Vec<Death>) -> HashMap<String, WeaponStats> {
-    deaths.iter().fold(HashMap::new(), |mut acc, death| {
-        if let Some(stats) = acc.get_mut(&death.killed_by) {
-            stats.add_death(death.distance());
-        } else {
-            acc.insert(death.killed_by.clone(), WeaponStats::new(death.distance()));
-        }
+pub fn weapon_stats_from_deaths(deaths: &Vec<Death>) -> Vec<(&String, WeaponStats)> {
+    deaths
+        .par_iter()
+        .fold(
+            || HashMap::new(),
+            |mut acc, death| {
+                acc.entry(&death.killed_by)
+                    .or_insert_with(|| WeaponStats::new(death.distance()))
+                    .add_death(death.distance());
 
-        acc
-    })
+                acc
+            },
+        )
+        .reduce(
+            || HashMap::new(),
+            |mut acc, map| {
+                // Merge the HashMaps from different threads
+                for (weapon, mut stats) in map {
+                    acc.entry(weapon)
+                        .or_insert_with(|| WeaponStats::new(0.0))
+                        .merge(&mut stats);
+                }
+                acc
+            },
+        )
+        .into_iter()
+        .collect()
 }
 
 pub fn get_top_weapons(
-    weapon_stats: HashMap<String, WeaponStats>,
+    mut weapon_stats: Vec<(&String, WeaponStats)>,
     weapon_count: usize,
-) -> HashMap<String, WeaponStats> {
-    let mut weapon_names: Vec<&String> = weapon_stats.keys().collect();
+) -> Vec<(&String, WeaponStats)> {
+    weapon_stats.par_sort_by(|a, b| {
+        let a = a.1.count;
+        let b = b.1.count;
 
-    weapon_names.sort_by(|a, b| {
-        let a = weapon_stats.get(*a).unwrap().count;
-        let b = weapon_stats.get(*b).unwrap().count;
         b.cmp(&a)
     });
 
-    let most_lethal_weapons = weapon_names
-        .iter()
-        .take(weapon_count)
-        .map(|name| {
-            let stats = weapon_stats.get(*name).unwrap();
-            let count = stats.count;
-            let total_distance = stats.total_distance;
+    weapon_stats.truncate(weapon_count);
 
-            (
-                name.to_string(),
-                WeaponStats {
-                    count,
-                    total_distance,
-                },
-            )
-        })
-        .collect();
-
-    most_lethal_weapons
+    weapon_stats
 }
