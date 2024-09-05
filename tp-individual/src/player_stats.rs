@@ -27,7 +27,7 @@ impl PlayerStats {
         }
     }
 
-    pub fn merge(&mut self, other: &mut PlayerStats) {
+    pub fn _merge(&mut self, other: &mut PlayerStats) {
         self.total += other.total;
         for (weapon, count) in other.weapons.iter() {
             if let Some(self_count) = self.weapons.get_mut(weapon) {
@@ -41,28 +41,16 @@ impl PlayerStats {
 
 pub fn player_stats_from_deaths(deaths: &Vec<Death>) -> Vec<(&String, PlayerStats)> {
     deaths
-        .par_iter()
+        .iter()
         .fold(
-            || HashMap::new(),
-            |mut acc, death| {
-                acc.entry(&death.killer_name)
-                    .or_insert_with(|| PlayerStats::new(&death.killed_by))
-                    .add_death(&death.killed_by);
-
-                acc
-            },
-        )
-        .reduce(
-            || HashMap::new(),
-            |mut acc, map| {
-                for (player, mut stats) in map {
-                    acc.entry(player)
-                        .or_insert_with(|| PlayerStats {
-                            total: 0,
-                            weapons: HashMap::new(),
-                        })
-                        .merge(&mut stats);
+            HashMap::new(),
+            |mut acc: HashMap<&String, PlayerStats>, death| {
+                if let Some(stats) = acc.get_mut(&death.killer_name) {
+                    stats.add_death(&death.killed_by);
+                } else {
+                    acc.insert(&death.killer_name, PlayerStats::new(&death.killed_by));
                 }
+
                 acc
             },
         )
