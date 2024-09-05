@@ -5,18 +5,18 @@ use crate::deaths::Death;
 
 pub struct WeaponStats {
     pub count: usize,
-    pub total_distance: f32,
+    pub total_distance: f64,
 }
 
 impl WeaponStats {
-    pub fn new(distance: f32) -> Self {
+    pub fn new(distance: f64) -> Self {
         Self {
             count: 1,
             total_distance: distance,
         }
     }
 
-    pub fn add_death(&mut self, distance: f32) {
+    pub fn add_death(&mut self, distance: f64) {
         self.count += 1;
         self.total_distance += distance;
     }
