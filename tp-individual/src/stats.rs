@@ -29,7 +29,6 @@ impl Stats {
                     let killed_by = death.killed_by;
                     let killer_by_clone = killed_by.clone();
 
-                    // Accumulate deaths for players and weapons
                     acc.players
                         .entry(killer_name)
                         .or_insert_with(PlayerStats::new)
@@ -43,7 +42,6 @@ impl Stats {
                     acc
                 },
             )
-            // Combine partial results from each parallel thread
             .reduce(
                 || Stats {
                     total_deaths: 0,

@@ -44,15 +44,12 @@ where
     K: Send,
 {
     files
-        .par_iter() // Parallel iteration over the files
+        .par_iter()
         .flat_map(|file| {
             let reader = read_csv_file(file);
-            reader
-                .lines()
-                .skip(1) // Skip the header if necessary
-                .par_bridge() // Parallelize line processing
+            reader.lines().skip(1).par_bridge()
         })
-        .filter_map(|line| line.ok()) // Filter out any erroneous lines
-        .filter_map(|line| process_line(line).ok()) // Apply the closure and handle the result
+        .filter_map(|line| line.ok())
+        .filter_map(|line| process_line(line).ok())
         .collect()
 }
