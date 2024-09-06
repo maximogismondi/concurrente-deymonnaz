@@ -4,14 +4,18 @@ mod file_reading;
 mod json_writting;
 mod player_stats;
 mod sorting;
+mod stats;
 mod weapon_stats;
+
+use std::time::Instant;
 
 use args_reading::read_args;
 use deaths::Death;
 use file_reading::{find_csv_in_dir, read_csv_files};
 use json_writting::save_as_json;
-use player_stats::{get_top_killers, player_stats_from_deaths};
-use weapon_stats::{get_top_weapons, weapon_stats_from_deaths};
+use player_stats::filter_top_killers;
+use stats::Stats;
+use weapon_stats::filter_top_weapons;
 
 const PADRON: usize = 110119;
 
@@ -29,39 +33,44 @@ fn main() {
 
     // READ CSV FILES
 
-    let start = std::time::Instant::now();
+    let start = Instant::now();
 
     let csv_files = find_csv_in_dir(&input_path);
     let deaths = read_csv_files(csv_files, Death::from_csv_record);
 
-    let end_parse = std::time::Instant::now();
-    println!("End parsing: {:?}", end_parse - start);
+    let end_reading = Instant::now();
+    println!("End reading: {:?}", end_reading - start);
 
     // PROCESS DEATHS
-    // Get top players and favorite weapons
 
-    let player_stats = player_stats_from_deaths(&deaths);
-    let most_lethal_players =
-        get_top_killers(player_stats, TOP_PLAYERS_COUNT, TOP_WEAPONS_OF_PLAYER_COUNT);
+    let mut stats = Stats::from_deaths(deaths);
 
-    let end_players = std::time::Instant::now();
-    println!("End players: {:?}", end_players - end_parse);
+    let end_process = Instant::now();
+    println!("End process: {:?}", end_process - end_reading);
 
-    // Get top weapons
+    // GET TOP KILLERS AND ITS BEST WEAPONS
 
-    let weapon_stats = weapon_stats_from_deaths(&deaths);
-    let most_lethal_weapon = get_top_weapons(weapon_stats, TOP_WEAPONS_COUNT);
+    filter_top_killers(
+        &mut stats.players,
+        TOP_PLAYERS_COUNT,
+        TOP_WEAPONS_OF_PLAYER_COUNT,
+    );
 
-    let end_weapons = std::time::Instant::now();
-    println!("End weapons: {:?}", end_weapons - end_players);
+    let end_players = Instant::now();
+    println!("End filter players: {:?}", end_players - end_process);
+
+    // GET TOP WEAPONS
+
+    filter_top_weapons(&mut stats.weapons, TOP_WEAPONS_COUNT);
+
+    let end_weapons = Instant::now();
+    println!("End filter weapons: {:?}", end_weapons - end_players);
 
     // SAVE AS JSON
 
-    save_as_json(
-        most_lethal_players,
-        most_lethal_weapon,
-        &output_file_name,
-        deaths.len(),
-    );
-    println!("Total: {:?}", end_weapons - start);
+    save_as_json(stats, &output_file_name);
+    let end_json = Instant::now();
+    println!("End json: {:?}", end_json - end_weapons);
+
+    println!("Total: {:?}", end_json - start);
 }
