@@ -1,6 +1,10 @@
-use std::{collections::BinaryHeap, collections::HashMap, hash::Hash};
+use std::{
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap},
+    hash::Hash,
+};
 
-pub fn truncate_top_elements<K, V>(elements: &mut HashMap<K, V>, top_count: usize)
+pub fn retain_top_elements<K, V>(elements: &mut HashMap<K, V>, top_count: usize)
 where
     K: Eq + Hash + Ord,
     V: Ord,
@@ -8,12 +12,13 @@ where
     let mut heap = BinaryHeap::new();
 
     for (key, value) in elements.drain() {
-        heap.push((key, value));
+        // push reversed value to the heap
+        heap.push(((Reverse(value)), key));
+
         if heap.len() > top_count {
             heap.pop();
         }
     }
 
-    elements.clear();
-    elements.extend(heap);
+    elements.extend(heap.into_iter().map(|(Reverse(value), key)| (key, value)));
 }

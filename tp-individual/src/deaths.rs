@@ -34,6 +34,10 @@ impl Death {
         let victim_position_x = fields[10].parse::<f64>().ok();
         let victim_position_y = fields[11].parse::<f64>().ok();
 
+        if killed_by.is_empty() || killer_name.is_empty() {
+            return Err("Empty fields".to_string());
+        }
+
         Ok(Self {
             killed_by,
             killer_name,

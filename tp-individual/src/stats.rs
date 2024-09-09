@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use rayon::prelude::*;
 
-use crate::{deaths::Death, player_stats::PlayerStats, weapon_stats::WeaponStats};
+use crate::{
+    deaths::Death, player_stats::PlayerStats, sorting::retain_top_elements,
+    weapon_stats::WeaponStats,
+};
 
 pub struct Stats {
     pub total_deaths: usize,
@@ -72,5 +75,17 @@ impl Stats {
                 })
                 .or_insert(other_weapon_stats);
         }
+    }
+
+    pub fn filter_top_killers(&mut self, player_count: usize, weapon_count: usize) {
+        retain_top_elements(&mut self.players, player_count);
+
+        self.players.iter_mut().for_each(|(_, stats)| {
+            retain_top_elements(&mut stats.weapons, weapon_count);
+        });
+    }
+
+    pub fn filter_top_weapons(&mut self, weapon_count: usize) {
+        retain_top_elements(&mut self.weapons, weapon_count);
     }
 }

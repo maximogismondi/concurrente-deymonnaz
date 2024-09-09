@@ -13,9 +13,7 @@ use args_reading::read_args;
 use deaths::Death;
 use file_reading::{find_csv_in_dir, read_csv_files};
 use json_writting::save_as_json;
-use player_stats::filter_top_killers;
 use stats::Stats;
-use weapon_stats::filter_top_weapons;
 
 const PADRON: usize = 110119;
 
@@ -45,18 +43,14 @@ fn main() {
 
     // GET TOP KILLERS AND ITS BEST WEAPONS
 
-    filter_top_killers(
-        &mut stats.players,
-        TOP_PLAYERS_COUNT,
-        TOP_WEAPONS_OF_PLAYER_COUNT,
-    );
+    stats.filter_top_killers(TOP_PLAYERS_COUNT, TOP_WEAPONS_OF_PLAYER_COUNT);
 
     let end_players = Instant::now();
     println!("End filter players: {:?}", end_players - end_process);
 
     // GET TOP WEAPONS
 
-    filter_top_weapons(&mut stats.weapons, TOP_WEAPONS_COUNT);
+    stats.filter_top_weapons(TOP_WEAPONS_COUNT);
 
     let end_weapons = Instant::now();
     println!("End filter weapons: {:?}", end_weapons - end_players);
