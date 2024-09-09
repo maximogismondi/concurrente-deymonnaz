@@ -28,17 +28,21 @@ impl Stats {
                     let death_distance = death.distance();
                     let killer_name = death.killer_name;
                     let killed_by = death.killed_by;
-                    let killer_by_clone = killed_by.clone();
+                    let killed_by_clone = killed_by.clone();
 
-                    acc.players
-                        .entry(killer_name)
-                        .or_insert_with(PlayerStats::new)
-                        .add_death(killer_by_clone);
+                    if let Some(killer_name) = killer_name {
+                        acc.players
+                            .entry(killer_name)
+                            .or_insert_with(PlayerStats::new)
+                            .add_death(killed_by_clone);
+                    }
 
-                    acc.weapons
-                        .entry(killed_by)
-                        .or_insert_with(WeaponStats::new)
-                        .add_death(death_distance);
+                    if let Some(killed_by) = killed_by {
+                        acc.weapons
+                            .entry(killed_by)
+                            .or_insert_with(WeaponStats::new)
+                            .add_death(death_distance);
+                    }
 
                     acc
                 },

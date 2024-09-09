@@ -24,7 +24,7 @@ pub fn save_as_json(stats: Stats, output_path: &str) {
                 .map(|(weapon_name, weapon_death_count)| {
                     (
                         weapon_name,
-                        calculate_deaths_percentage(*weapon_death_count, *deaths_count),
+                        calculate_percentage(*weapon_death_count, *deaths_count),
                     )
                 })
                 .collect::<HashMap<_, _>>();
@@ -47,8 +47,8 @@ pub fn save_as_json(stats: Stats, output_path: &str) {
         } = weapon_stats;
 
         (weapon_name, json!({
-            "deaths_percentage": calculate_deaths_percentage(*death_count, total_deaths),
-            "average_distance": calculate_average_distance(*total_distance, *death_count_with_distance),
+            "deaths_percentage": calculate_percentage(*death_count, total_deaths),
+            "average_distance": calculate_average(*total_distance, *death_count_with_distance),
         }))
     }).collect::<HashMap<_, _>>();
 
@@ -62,18 +62,18 @@ pub fn save_as_json(stats: Stats, output_path: &str) {
     std::fs::write(output_path, json_str).expect("Failed to write JSON to file");
 }
 
-fn calculate_deaths_percentage(death_count: usize, total_deaths: usize) -> f64 {
-    if total_deaths == 0 {
+fn calculate_percentage(count: usize, total: usize) -> f64 {
+    if total == 0 {
         return 0.0;
     } else {
-        (death_count as f64 / total_deaths as f64 * 10000f64).round() / 100f64
+        (count as f64 / total as f64 * 10000f64).round() / 100f64
     }
 }
 
-fn calculate_average_distance(total_distance: f64, death_count_with_distance: usize) -> f64 {
-    if death_count_with_distance == 0 {
+fn calculate_average(distance: f64, count: usize) -> f64 {
+    if count == 0 {
         0.0
     } else {
-        total_distance / death_count_with_distance as f64
+        (distance / count as f64 * 100f64).round() / 100f64
     }
 }

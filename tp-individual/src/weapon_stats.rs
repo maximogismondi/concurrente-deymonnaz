@@ -44,6 +44,7 @@ impl WeaponStats {
 
     pub fn merge(&mut self, other: &Self) {
         self.death_count += other.death_count;
+        self.death_count_with_distance += other.death_count_with_distance;
         self.total_distance += other.total_distance;
     }
 }

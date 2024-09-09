@@ -1,6 +1,6 @@
 pub struct Death {
-    pub killed_by: String,
-    pub killer_name: String,
+    pub killed_by: Option<String>,
+    pub killer_name: Option<String>,
     // killer_placement: f64,
     killer_position_x: Option<f64>,
     killer_position_y: Option<f64>,
@@ -21,8 +21,8 @@ impl Death {
             return Err(format!("Invalid number of fields: {}", fields.len()));
         }
 
-        let killed_by = fields[0].to_string();
-        let killer_name = fields[1].to_string();
+        let killed_by = (!fields[0].is_empty()).then(|| fields[0].to_string());
+        let killer_name = (!fields[1].is_empty()).then(|| fields[1].to_string());
         // let killer_placement = fields[2].parse::<f64>().map_err(|e| e.to_string())?;
         let killer_position_x = fields[3].parse::<f64>().ok();
         let killer_position_y = fields[4].parse::<f64>().ok();
@@ -33,10 +33,6 @@ impl Death {
         // let victim_placement = fields[9].parse::<f64>().map_err(|e| e.to_string())?;
         let victim_position_x = fields[10].parse::<f64>().ok();
         let victim_position_y = fields[11].parse::<f64>().ok();
-
-        if killed_by.is_empty() || killer_name.is_empty() {
-            return Err("Empty fields".to_string());
-        }
 
         Ok(Self {
             killed_by,

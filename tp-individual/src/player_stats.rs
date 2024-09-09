@@ -28,9 +28,11 @@ impl PlayerStats {
         }
     }
 
-    pub fn add_death(&mut self, weapon: String) {
+    pub fn add_death(&mut self, weapon: Option<String>) {
         self.deaths_count += 1;
-        *self.weapons.entry(weapon).or_insert(0) += 1;
+        if let Some(weapon) = weapon {
+            *self.weapons.entry(weapon).or_insert(0) += 1;
+        }
     }
 
     pub fn merge(&mut self, other: Self) {
