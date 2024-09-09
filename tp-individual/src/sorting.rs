@@ -1,18 +1,19 @@
-use rayon::prelude::*;
-use std::{cmp::Ordering, collections::HashMap};
+use std::{collections::BinaryHeap, collections::HashMap, hash::Hash};
 
-pub fn truncate_top_elements<K, V, F>(elements: &mut HashMap<K, V>, top_count: usize, comparator: F)
+pub fn truncate_top_elements<K, V>(elements: &mut HashMap<K, V>, top_count: usize)
 where
-    F: Fn(&V, &V) -> Ordering + Sync + Send,
-    K: Send + Eq + std::hash::Hash,
-    V: Send,
+    K: Eq + Hash + Ord,
+    V: Ord,
 {
-    let mut result_elements: Vec<(K, V)> = elements.drain().collect();
+    let mut heap = BinaryHeap::new();
 
-    result_elements.par_sort_by(|a, b| comparator(&a.1, &b.1));
-
-    result_elements.truncate(top_count);
+    for (key, value) in elements.drain() {
+        heap.push((key, value));
+        if heap.len() > top_count {
+            heap.pop();
+        }
+    }
 
     elements.clear();
-    elements.extend(result_elements);
+    elements.extend(heap);
 }

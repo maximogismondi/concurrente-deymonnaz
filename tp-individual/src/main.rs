@@ -31,22 +31,17 @@ fn main() {
         .build_global()
         .unwrap();
 
-    // READ CSV FILES
+    // READ CSV FILES AND PROCESS DEATHS INTO STATS
 
     let start = Instant::now();
 
     let csv_files = find_csv_in_dir(&input_path);
     let deaths = read_csv_files(csv_files, Death::from_csv_record);
 
-    let end_reading = Instant::now();
-    println!("End reading: {:?}", end_reading - start);
-
-    // PROCESS DEATHS
-
     let mut stats = Stats::from_deaths(deaths);
 
     let end_process = Instant::now();
-    println!("End process: {:?}", end_process - end_reading);
+    println!("End process: {:?}", end_process - start);
 
     // GET TOP KILLERS AND ITS BEST WEAPONS
 

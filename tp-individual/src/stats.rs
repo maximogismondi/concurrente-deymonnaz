@@ -4,7 +4,6 @@ use rayon::prelude::*;
 
 use crate::{deaths::Death, player_stats::PlayerStats, weapon_stats::WeaponStats};
 
-#[derive(Debug)]
 pub struct Stats {
     pub total_deaths: usize,
     pub players: HashMap<String, PlayerStats>,
@@ -12,9 +11,8 @@ pub struct Stats {
 }
 
 impl Stats {
-    pub fn from_deaths(deaths: Vec<Death>) -> Self {
+    pub fn from_deaths(deaths: impl ParallelIterator<Item = Death>) -> Stats {
         deaths
-            .into_par_iter()
             .fold(
                 || Stats {
                     total_deaths: 0,

@@ -38,18 +38,17 @@ fn read_csv_file(file: &Path) -> BufReader<File> {
     }
 }
 
-pub fn read_csv_files<T, K>(files: Vec<PathBuf>, process_line: T) -> Vec<K>
+pub fn read_csv_files<T, K>(files: Vec<PathBuf>, process_line: T) -> impl ParallelIterator<Item = K>
 where
-    T: Fn(String) -> Result<K, String> + Send + Sync,
-    K: Send,
+    T: Fn(String) -> Result<K, String> + Send + Sync + 'static,
+    K: Send + 'static,
 {
     files
-        .par_iter()
+        .into_par_iter() // Consumes the Vec<PathBuf>
         .flat_map(|file| {
-            let reader = read_csv_file(file);
-            reader.lines().skip(1).par_bridge()
+            let reader = read_csv_file(&file); // Borrow file instead of consuming
+            reader.lines().skip(1).par_bridge() // Use par_bridge for parallelism
         })
-        .filter_map(|line| line.ok())
-        .filter_map(|line| process_line(line).ok())
-        .collect()
+        .filter_map(|line| line.ok()) // Filter out errors from reading lines
+        .filter_map(move |line| process_line(line).ok()) // Filter out errors from processing lines
 }
