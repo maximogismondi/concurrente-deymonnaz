@@ -24,10 +24,16 @@ const TOP_WEAPONS_OF_PLAYER_COUNT: usize = 3;
 fn main() {
     let (input_path, num_threads, output_file_name) = read_args();
 
-    rayon::ThreadPoolBuilder::new()
+    match rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
         .build_global()
-        .unwrap();
+    {
+        Err(e) => {
+            eprintln!("Error creating thread pool: {}", e);
+            std::process::exit(1);
+        }
+        Ok(_) => (),
+    }
 
     let mut timer = Timer::new();
 
