@@ -1,4 +1,3 @@
-#[derive(Debug)]
 pub struct WeaponStats {
     pub death_count: usize,
     pub death_count_with_distance: usize,
