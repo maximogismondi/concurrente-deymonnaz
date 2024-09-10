@@ -7,32 +7,34 @@ use std::{
 
 pub fn retain_top_elements<K, V>(elements: &mut HashMap<K, V>, top_count: usize)
 where
-    K: Eq + Hash + Ord,
-    V: Ord,
+    K: Hash + Ord + Send,
+    V: Ord + Send,
 {
-    let mut heap = BinaryHeap::new();
+    let top_elements = elements
+        .drain()
+        .par_bridge()
+        .fold(BinaryHeap::new, |mut acc_heap, (key, value)| {
+            acc_heap.push((Reverse(value), key));
 
-    for (key, value) in elements.drain() {
-        heap.push(((Reverse(value)), key));
+            if acc_heap.len() > top_count {
+                acc_heap.pop();
+            }
+            acc_heap
+        })
+        .reduce(BinaryHeap::new, |mut acc_heap, local_heap| {
+            for (value, key) in local_heap.into_iter() {
+                acc_heap.push((value, key));
 
-        if heap.len() > top_count {
-            heap.pop();
-        }
-    }
+                if acc_heap.len() > top_count {
+                    acc_heap.pop();
+                }
+            }
+            acc_heap
+        });
 
-    elements.extend(heap.into_iter().map(|(Reverse(value), key)| (key, value)));
-}
-
-pub fn _retain_top_elements<K, V>(elements: &mut HashMap<K, V>, top_count: usize)
-where
-    K: Send + Eq + Hash,
-    V: Send + Ord,
-{
-    let mut result_elements: Vec<(K, V)> = elements.drain().collect();
-
-    result_elements.par_sort_by(|a, b| a.1.cmp(&b.1).reverse());
-
-    result_elements.truncate(top_count);
-
-    elements.extend(result_elements);
+    elements.extend(
+        top_elements
+            .into_iter()
+            .map(|(Reverse(value), key)| (key, value)),
+    );
 }
