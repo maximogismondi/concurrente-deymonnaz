@@ -64,7 +64,7 @@ pub fn save_as_json(stats: Stats, output_path: &str) {
 
 fn calculate_percentage(count: usize, total: usize) -> f64 {
     if total == 0 {
-        return 0.0;
+        0.0
     } else {
         (count as f64 / total as f64 * 10000f64).round() / 100f64
     }
