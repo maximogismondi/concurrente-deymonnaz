@@ -14,7 +14,7 @@ impl PartialEq for WeaponStats {
 
 impl PartialOrd for WeaponStats {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.death_count.cmp(&other.death_count))
+        Some(self.cmp(other))
     }
 }
 

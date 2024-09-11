@@ -10,7 +10,7 @@ pub struct PlayerStats {
 
 impl PartialOrd for PlayerStats {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.deaths_count.cmp(&other.deaths_count))
+        Some(self.cmp(other))
     }
 }
 
