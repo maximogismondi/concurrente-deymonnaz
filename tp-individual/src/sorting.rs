@@ -68,3 +68,42 @@ where
 
     elements.extend(top_elements.into_iter());
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_retain_top_elements() {
+        let mut elements = vec![(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
+            .into_iter()
+            .collect();
+
+        retain_top_elements(&mut elements, 3);
+
+        assert_eq!(elements.len(), 3);
+        assert_eq!(elements.get(&3), Some(&3));
+        assert_eq!(elements.get(&4), Some(&4));
+        assert_eq!(elements.get(&5), Some(&5));
+    }
+
+    #[test]
+    fn test_retain_empty_map() {
+        let mut elements: HashMap<usize, usize> = HashMap::new();
+
+        retain_top_elements(&mut elements, 3);
+
+        assert!(elements.is_empty());
+    }
+
+    #[test]
+    fn test_retain_less_elements_than_capacity() {
+        let mut elements = vec![(1, 1), (2, 2)].into_iter().collect();
+
+        retain_top_elements(&mut elements, 3);
+
+        assert_eq!(elements.len(), 2);
+        assert_eq!(elements.get(&1), Some(&1));
+        assert_eq!(elements.get(&2), Some(&2));
+    }
+}
