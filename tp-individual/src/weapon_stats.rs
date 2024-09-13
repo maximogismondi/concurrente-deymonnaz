@@ -47,3 +47,66 @@ impl WeaponStats {
         self.total_distance += other.total_distance;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let weapon_stats = WeaponStats::new();
+
+        assert_eq!(weapon_stats.death_count, 0);
+        assert_eq!(weapon_stats.death_count_with_distance, 0);
+        assert_eq!(weapon_stats.total_distance, 0.0);
+    }
+
+    #[test]
+    fn test_add_death() {
+        let mut weapon_stats = WeaponStats::new();
+
+        weapon_stats.add_death(Some(100.0));
+        assert_eq!(weapon_stats.death_count, 1);
+        assert_eq!(weapon_stats.death_count_with_distance, 1);
+        assert_eq!(weapon_stats.total_distance, 100.0);
+    }
+
+    #[test]
+    fn test_add_multiple_deaths() {
+        let mut weapon_stats = WeaponStats::new();
+
+        weapon_stats.add_death(Some(100.0));
+        weapon_stats.add_death(Some(200.0));
+
+        assert_eq!(weapon_stats.death_count, 2);
+        assert_eq!(weapon_stats.death_count_with_distance, 2);
+        assert_eq!(weapon_stats.total_distance, 300.0);
+    }
+
+    #[test]
+    fn test_add_no_distance_death() {
+        let mut weapon_stats = WeaponStats::new();
+
+        weapon_stats.add_death(None);
+
+        assert_eq!(weapon_stats.death_count, 1);
+        assert_eq!(weapon_stats.death_count_with_distance, 0);
+        assert_eq!(weapon_stats.total_distance, 0.0);
+    }
+
+    #[test]
+    fn test_merge() {
+        let mut weapon_stats_1 = WeaponStats::new();
+        let mut weapon_stats_2 = WeaponStats::new();
+
+        weapon_stats_1.add_death(Some(100.0));
+        weapon_stats_1.add_death(None);
+        weapon_stats_2.add_death(Some(200.0));
+
+        weapon_stats_1.merge(&weapon_stats_2);
+
+        assert_eq!(weapon_stats_1.death_count, 3);
+        assert_eq!(weapon_stats_1.death_count_with_distance, 2);
+        assert_eq!(weapon_stats_1.total_distance, 300.0);
+    }
+}
