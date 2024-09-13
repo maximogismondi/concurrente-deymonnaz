@@ -43,3 +43,66 @@ impl Death {
         Some(((killer_x - victim_x).powi(2) + (killer_y - victim_y).powi(2)).sqrt())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const COMPLETE_RECORD: &str = "AK47,Player1,1.0,0.0,0.0,map,match-id,123,Player2,1.0,100.0,0.0";
+    const NO_DISTANCE_RECORD: &str = "AK47,Player1,1.0,,,map,match-id,123,Player2,1.0,,";
+    const NO_WEAPON_RECORD: &str = ",Player1,1.0,0.0,0.0,map,match-id,123,Player2,1.0,100.0,0.0";
+    const NO_KILLER_RECORD: &str = "AK47,,1.0,0.0,0.0,map,match-id,123,Player2,1.0,100.0,0.0";
+
+    #[test]
+    fn test_from_complete_csv_record() {
+        let record = COMPLETE_RECORD.to_string();
+        let death = Death::from_csv_record(record).unwrap();
+
+        assert_eq!(death.killed_by, Some("AK47".to_string()));
+        assert_eq!(death.killer_name, Some("Player1".to_string()));
+        assert_eq!(death.killer_position_x, Some(0.0));
+        assert_eq!(death.killer_position_y, Some(0.0));
+        assert_eq!(death.victim_position_x, Some(100.0));
+        assert_eq!(death.victim_position_y, Some(0.0));
+    }
+
+    #[test]
+    fn test_invalid_number_of_fields() {
+        let record = "AK47,Player1,1.0,0.0,0.0,map,match-id,123,Player2,1.0,100.0".to_string();
+        let death = Death::from_csv_record(record);
+
+        assert!(death.is_err());
+    }
+
+    #[test]
+    fn test_distance() {
+        let record = COMPLETE_RECORD.to_string();
+        let death = Death::from_csv_record(record).unwrap();
+
+        assert_eq!(death.distance(), Some(100.0));
+    }
+
+    #[test]
+    fn test_no_distance() {
+        let record = NO_DISTANCE_RECORD.to_string();
+        let death = Death::from_csv_record(record).unwrap();
+
+        assert_eq!(death.distance(), None);
+    }
+
+    #[test]
+    fn test_no_weapon() {
+        let record = NO_WEAPON_RECORD.to_string();
+        let death = Death::from_csv_record(record).unwrap();
+
+        assert_eq!(death.killed_by, None);
+    }
+
+    #[test]
+    fn test_no_killer() {
+        let record = NO_KILLER_RECORD.to_string();
+        let death = Death::from_csv_record(record).unwrap();
+
+        assert_eq!(death.killer_name, None);
+    }
+}
