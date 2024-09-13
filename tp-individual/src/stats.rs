@@ -93,3 +93,85 @@ impl Stats {
         retain_top_elements(&mut self.weapons, weapon_count);
     }
 }
+
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+
+    const DEATH_RECORD_1: &str = "AK47,Player1,1.0,0.0,0.0,map,match-id,123,Player2,1.0,100.0,0.0";
+    const DEATH_RECORD_2: &str = "AK47,Player2,1.0,0.0,0.0,map,match-id,123,Player1,1.0,100.0,0.0";
+    const DEATH_RECORD_3: &str = "M4A4,Player1,1.0,0.0,0.0,map,match-id,123,Player2,1.0,100.0,0.0";
+
+    #[test]
+    fn test_stats_from_deaths() {
+        let deaths = vec![DEATH_RECORD_1.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let stats = Stats::from_deaths(deaths);
+
+        assert_eq!(stats.total_deaths, 1);
+        assert_eq!(stats.players.len(), 1);
+        assert_eq!(stats.weapons.len(), 1);
+    }
+
+    #[test]
+    fn test_stats_from_multiple_deaths() {
+        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_1.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let stats = Stats::from_deaths(deaths);
+
+        assert_eq!(stats.total_deaths, 2);
+        assert_eq!(stats.players.len(), 1);
+        assert_eq!(stats.weapons.len(), 1);
+    }
+
+    #[test]
+    fn test_stats_from_multiple_players() {
+        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_2.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let stats = Stats::from_deaths(deaths);
+
+        assert_eq!(stats.total_deaths, 2);
+        assert_eq!(stats.players.len(), 2);
+        assert_eq!(stats.weapons.len(), 1);
+    }
+
+    #[test]
+    fn test_stats_from_multiple_weapons() {
+        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_3.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let stats = Stats::from_deaths(deaths);
+
+        assert_eq!(stats.total_deaths, 2);
+        assert_eq!(stats.players.len(), 1);
+        assert_eq!(stats.weapons.len(), 2);
+    }
+
+    #[test]
+    fn test_stats_merge() {
+        let deaths_1 = vec![DEATH_RECORD_1.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let deaths_2 = vec![DEATH_RECORD_2.to_string(), DEATH_RECORD_3.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let mut stats_1 = Stats::from_deaths(deaths_1);
+        let stats_2 = Stats::from_deaths(deaths_2);
+
+        stats_1.merge(stats_2);
+
+        assert_eq!(stats_1.total_deaths, 3);
+        assert_eq!(stats_1.players.len(), 2);
+        assert_eq!(stats_1.weapons.len(), 2);
+    }
+}
