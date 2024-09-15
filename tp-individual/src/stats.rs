@@ -174,4 +174,53 @@ mod tests {
         assert_eq!(stats_1.players.len(), 2);
         assert_eq!(stats_1.weapons.len(), 2);
     }
+
+    #[test]
+    fn test_filter_top_killers() {
+        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_2.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let mut stats = Stats::from_deaths(deaths);
+
+        stats.filter_top_killers(1, 1);
+
+        assert_eq!(stats.players.len(), 1);
+        assert_eq!(stats.weapons.len(), 1);
+    }
+
+    #[test]
+    fn test_filter_top_killers_weapons() {
+        let deaths = vec![
+            DEATH_RECORD_1.to_string(),
+            DEATH_RECORD_1.to_string(),
+            DEATH_RECORD_3.to_string(),
+        ]
+        .into_par_iter()
+        .map(|record| Death::from_csv_record(record).unwrap());
+
+        let mut stats = Stats::from_deaths(deaths);
+
+        stats.filter_top_killers(1, 1);
+
+        assert_eq!(stats.players.len(), 1);
+        assert_eq!(stats.players.get("Player1").unwrap().weapons.len(), 1);
+    }
+
+    #[test]
+    fn test_filter_top_weapons() {
+        let deaths = vec![
+            DEATH_RECORD_1.to_string(),
+            DEATH_RECORD_1.to_string(),
+            DEATH_RECORD_3.to_string(),
+        ]
+        .into_par_iter()
+        .map(|record| Death::from_csv_record(record).unwrap());
+
+        let mut stats = Stats::from_deaths(deaths);
+
+        stats.filter_top_weapons(1);
+
+        assert_eq!(stats.weapons.len(), 1);
+    }
 }
