@@ -62,7 +62,15 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use crate::{deaths::Death, file_reading::read_csv_files, PADRON};
+    use crate::{
+        deaths::Death,
+        file_reading::read_csv_files,
+        json_writting::save_as_json,
+        player_stats::{self, PlayerStats},
+        stats::Stats,
+        weapon_stats::WeaponStats,
+        PADRON,
+    };
     use assert_json_diff::assert_json_eq;
     use rayon::prelude::*;
     use serde_json::json;
@@ -144,15 +152,28 @@ mod tests {
         assert_eq!(deaths.count(), 2);
     }
 
+    fn json_from_file(file_path: &str) -> serde_json::Value {
+        let reader = std::fs::File::open(file_path).unwrap();
+        serde_json::from_reader(reader).unwrap()
+    }
+
+    fn stats_from_deaths(deaths: Vec<String>) -> Stats {
+        Stats::from_deaths(
+            deaths
+                .into_par_iter()
+                .map(|record| Death::from_csv_record(record).unwrap()),
+        )
+    }
+
     #[test]
     fn test_save_as_json_empty() {
         let temp_file = NamedTempFile::new().unwrap();
         let output_path = temp_file.path().to_str().unwrap();
 
-        let deaths = vec![].into_par_iter();
+        let deaths = vec![];
+        let stats = stats_from_deaths(deaths);
 
-        let stats = crate::stats::Stats::from_deaths(deaths);
-        crate::json_writting::save_as_json(stats, output_path);
+        save_as_json(stats, output_path);
 
         let expected_json = json!({
             "padron": PADRON,
@@ -160,8 +181,7 @@ mod tests {
             "top_weapons": {},
         });
 
-        let reader = std::fs::File::open(output_path).unwrap();
-        let output_json: serde_json::Value = serde_json::from_reader(reader).unwrap();
+        let output_json = json_from_file(output_path);
 
         assert_json_eq!(expected_json, output_json);
     }
@@ -171,12 +191,10 @@ mod tests {
         let temp_file = NamedTempFile::new().unwrap();
         let output_path = temp_file.path().to_str().unwrap();
 
-        let deaths = vec![DEATH_RECORD_1.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
+        let deaths = vec![DEATH_RECORD_1.to_string()];
+        let stats = stats_from_deaths(deaths);
 
-        let stats = crate::stats::Stats::from_deaths(deaths);
-        crate::json_writting::save_as_json(stats, output_path);
+        save_as_json(stats, output_path);
 
         let expected_json = json!({
             "padron": PADRON,
@@ -196,8 +214,7 @@ mod tests {
             },
         });
 
-        let reader = std::fs::File::open(output_path).unwrap();
-        let output_json: serde_json::Value = serde_json::from_reader(reader).unwrap();
+        let output_json = json_from_file(output_path);
 
         assert_json_eq!(expected_json, output_json);
     }
@@ -207,12 +224,10 @@ mod tests {
         let temp_file = NamedTempFile::new().unwrap();
         let output_path = temp_file.path().to_str().unwrap();
 
-        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_2.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
+        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_2.to_string()];
+        let stats = stats_from_deaths(deaths);
 
-        let stats = crate::stats::Stats::from_deaths(deaths);
-        crate::json_writting::save_as_json(stats, output_path);
+        save_as_json(stats, output_path);
 
         let expected_json = json!({
             "padron": PADRON,
@@ -242,8 +257,7 @@ mod tests {
             },
         });
 
-        let reader = std::fs::File::open(output_path).unwrap();
-        let output_json: serde_json::Value = serde_json::from_reader(reader).unwrap();
+        let output_json = json_from_file(output_path);
 
         assert_json_eq!(expected_json, output_json);
     }
