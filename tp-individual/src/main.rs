@@ -59,3 +59,192 @@ fn main() {
 
     timer.print_total();
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{deaths::Death, file_reading::read_csv_files, PADRON};
+    use assert_json_diff::assert_json_eq;
+    use rayon::prelude::*;
+    use serde_json::json;
+    use tempfile::NamedTempFile;
+
+    const HEADER: &str = "killed_by,killer_name,killer_placement,killer_position_x,killer_position_y,map,match_id,time,victim_name,victim_placement,victim_position_x,victim_position_y";
+    const DEATH_RECORD_1: &str = "AK47,Player1,1.0,0.0,0.0,map,match-id,123,Player2,1.0,100.0,0.0";
+    const DEATH_RECORD_2: &str = "M4A4,Player2,1.0,0.0,0.0,map,match-id,123,Player1,1.0,50.0,0.0";
+
+    #[test]
+    fn test_empty_no_csv_files() {
+        let csv_files = vec![];
+        let deaths = read_csv_files(csv_files, |_: String| Ok(()));
+
+        assert_eq!(deaths.count(), 0);
+    }
+
+    #[test]
+    fn test_empty_csv_files() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let csv_files = vec![temp_file.path().to_path_buf()];
+        let deaths = read_csv_files(csv_files, |_: String| Ok(()));
+
+        assert_eq!(deaths.count(), 0);
+    }
+
+    #[test]
+    fn test_single_csv_file() {
+        let temp_file = NamedTempFile::new().unwrap();
+        std::fs::write(
+            temp_file.path(),
+            format!("{}\n{}", HEADER, DEATH_RECORD_1).as_bytes(),
+        )
+        .unwrap();
+
+        let csv_files = vec![temp_file.path().to_path_buf()];
+        let deaths = read_csv_files(csv_files, |line: String| Ok(line));
+
+        assert_eq!(deaths.count(), 1);
+    }
+
+    #[test]
+    fn test_multiline_csv_file() {
+        let temp_file = NamedTempFile::new().unwrap();
+        std::fs::write(
+            temp_file.path(),
+            format!("{}\n{}\n{}", HEADER, DEATH_RECORD_1, DEATH_RECORD_1).as_bytes(),
+        )
+        .unwrap();
+
+        let csv_files = vec![temp_file.path().to_path_buf()];
+        let deaths = read_csv_files(csv_files, |line: String| Ok(line));
+
+        assert_eq!(deaths.count(), 2);
+    }
+
+    #[test]
+    fn test_multiple_csv_files() {
+        let temp_file_1 = NamedTempFile::new().unwrap();
+        std::fs::write(
+            temp_file_1.path(),
+            format!("{}\n{}", HEADER, DEATH_RECORD_1).as_bytes(),
+        )
+        .unwrap();
+
+        let temp_file_2 = NamedTempFile::new().unwrap();
+        std::fs::write(
+            temp_file_2.path(),
+            format!("{}\n{}", HEADER, DEATH_RECORD_1).as_bytes(),
+        )
+        .unwrap();
+
+        let csv_files = vec![
+            temp_file_1.path().to_path_buf(),
+            temp_file_2.path().to_path_buf(),
+        ];
+        let deaths = read_csv_files(csv_files, |line: String| Ok(line));
+
+        assert_eq!(deaths.count(), 2);
+    }
+
+    #[test]
+    fn test_save_as_json_empty() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let output_path = temp_file.path().to_str().unwrap();
+
+        let deaths = vec![].into_par_iter();
+
+        let stats = crate::stats::Stats::from_deaths(deaths);
+        crate::json_writting::save_as_json(stats, output_path);
+
+        let expected_json = json!({
+            "padron": PADRON,
+            "top_killers": {},
+            "top_weapons": {},
+        });
+
+        let reader = std::fs::File::open(output_path).unwrap();
+        let output_json: serde_json::Value = serde_json::from_reader(reader).unwrap();
+
+        assert_json_eq!(expected_json, output_json);
+    }
+
+    #[test]
+    fn test_save_as_json_single_death() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let output_path = temp_file.path().to_str().unwrap();
+
+        let deaths = vec![DEATH_RECORD_1.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let stats = crate::stats::Stats::from_deaths(deaths);
+        crate::json_writting::save_as_json(stats, output_path);
+
+        let expected_json = json!({
+            "padron": PADRON,
+            "top_killers": {
+                "Player1": {
+                    "deaths": 1,
+                    "weapons_percentage": {
+                        "AK47": 100.0
+                    }
+                }
+            },
+            "top_weapons": {
+                "AK47": {
+                    "deaths_percentage": 100.0,
+                    "average_distance": 100.0
+                }
+            },
+        });
+
+        let reader = std::fs::File::open(output_path).unwrap();
+        let output_json: serde_json::Value = serde_json::from_reader(reader).unwrap();
+
+        assert_json_eq!(expected_json, output_json);
+    }
+
+    #[test]
+    fn test_save_as_json_multiple_players_and_weapons() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let output_path = temp_file.path().to_str().unwrap();
+
+        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_2.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let stats = crate::stats::Stats::from_deaths(deaths);
+        crate::json_writting::save_as_json(stats, output_path);
+
+        let expected_json = json!({
+            "padron": PADRON,
+            "top_killers": {
+                "Player1": {
+                    "deaths": 1,
+                    "weapons_percentage": {
+                        "AK47": 100.0
+                    }
+                },
+                "Player2": {
+                    "deaths": 1,
+                    "weapons_percentage": {
+                        "M4A4": 100.0
+                    }
+                }
+            },
+            "top_weapons": {
+                "AK47": {
+                    "deaths_percentage": 50.0,
+                    "average_distance": 100.0
+                },
+                "M4A4": {
+                    "deaths_percentage": 50.0,
+                    "average_distance": 50.0
+                }
+            },
+        });
+
+        let reader = std::fs::File::open(output_path).unwrap();
+        let output_json: serde_json::Value = serde_json::from_reader(reader).unwrap();
+
+        assert_json_eq!(expected_json, output_json);
+    }
+}
