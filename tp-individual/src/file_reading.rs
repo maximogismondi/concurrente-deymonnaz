@@ -1,4 +1,4 @@
-use rayon::prelude::*;
+use rayon::{prelude::*, ThreadPool};
 
 use std::{
     fs::File,
@@ -45,17 +45,23 @@ fn read_csv_file(file: &Path) -> BufReader<File> {
 /// The function will return an iterator with the results.
 /// If the processing function returns an error, the line will be skipped.
 /// If the file cannot be read, the program will exit with an error message.
-pub fn read_csv_files<F, T>(files: Vec<PathBuf>, process_line: F) -> impl ParallelIterator<Item = T>
+pub fn read_csv_files<F, T>(
+    files: Vec<PathBuf>,
+    process_line: F,
+    pool: &ThreadPool,
+) -> impl ParallelIterator<Item = T>
 where
     F: Fn(String) -> Result<T, String> + Send + Sync,
     T: Send,
 {
-    files
-        .into_par_iter()
-        .flat_map(|file| {
-            let reader = read_csv_file(&file);
-            reader.lines().skip(1).par_bridge()
-        })
-        .filter_map(|line| line.ok())
-        .filter_map(move |line| process_line(line).ok())
+    pool.install(|| {
+        files
+            .into_par_iter()
+            .flat_map(|file| {
+                let reader = read_csv_file(&file);
+                reader.lines().skip(1).par_bridge()
+            })
+            .filter_map(|line| line.ok())
+            .filter_map(move |line| process_line(line).ok())
+    })
 }

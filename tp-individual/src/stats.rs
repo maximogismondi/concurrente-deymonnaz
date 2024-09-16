@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use rayon::prelude::*;
+use rayon::{prelude::*, ThreadPool};
 
 use crate::{
     deaths::Death, player_stats::PlayerStats, sorting::retain_top_elements,
@@ -16,50 +16,53 @@ pub struct Stats {
 
 impl Stats {
     /// Creates a new `Stats` instance from a parallel iterator of `Death` instances.
-    pub fn from_deaths(deaths: impl ParallelIterator<Item = Death>) -> Stats {
-        deaths
-            .fold(
-                || Stats {
-                    total_deaths: 0,
-                    players: HashMap::new(),
-                    weapons: HashMap::new(),
-                },
-                |mut acc, death| {
-                    acc.total_deaths += 1;
+    /// The `pool` parameter is used to parallelize the processing of the deaths.
+    pub fn from_deaths(deaths: impl ParallelIterator<Item = Death>, pool: &ThreadPool) -> Self {
+        pool.install(|| {
+            deaths
+                .fold(
+                    || Stats {
+                        total_deaths: 0,
+                        players: HashMap::new(),
+                        weapons: HashMap::new(),
+                    },
+                    |mut acc, death| {
+                        acc.total_deaths += 1;
 
-                    let death_distance = death.distance();
-                    let killer_name = death.killer_name;
-                    let killed_by = death.killed_by;
-                    let killed_by_clone = killed_by.clone();
+                        let death_distance = death.distance();
+                        let killer_name = death.killer_name;
+                        let killed_by = death.killed_by;
+                        let killed_by_clone = killed_by.clone();
 
-                    if let Some(killer_name) = killer_name {
-                        acc.players
-                            .entry(killer_name)
-                            .or_insert_with(PlayerStats::new)
-                            .add_death(killed_by_clone);
-                    }
+                        if let Some(killer_name) = killer_name {
+                            acc.players
+                                .entry(killer_name)
+                                .or_insert_with(PlayerStats::new)
+                                .add_death(killed_by_clone);
+                        }
 
-                    if let Some(killed_by) = killed_by {
-                        acc.weapons
-                            .entry(killed_by)
-                            .or_insert_with(WeaponStats::new)
-                            .add_death(death_distance);
-                    }
+                        if let Some(killed_by) = killed_by {
+                            acc.weapons
+                                .entry(killed_by)
+                                .or_insert_with(WeaponStats::new)
+                                .add_death(death_distance);
+                        }
 
-                    acc
-                },
-            )
-            .reduce(
-                || Stats {
-                    total_deaths: 0,
-                    players: HashMap::new(),
-                    weapons: HashMap::new(),
-                },
-                |mut acc1, acc2| {
-                    acc1.merge(acc2);
-                    acc1
-                },
-            )
+                        acc
+                    },
+                )
+                .reduce(
+                    || Stats {
+                        total_deaths: 0,
+                        players: HashMap::new(),
+                        weapons: HashMap::new(),
+                    },
+                    |mut acc1, acc2| {
+                        acc1.merge(acc2);
+                        acc1
+                    },
+                )
+        })
     }
 
     /// Merges another `Stats` instance into this one.
@@ -85,17 +88,24 @@ impl Stats {
     }
 
     /// Filters the top `player_count` players and the top `weapon_count` weapons of each player.
-    pub fn filter_top_killers(&mut self, player_count: usize, weapon_count: usize) {
-        retain_top_elements(&mut self.players, player_count);
+    /// The filtering is done in parallel using the `pool` parameter.
+    pub fn filter_top_killers(
+        &mut self,
+        player_count: usize,
+        weapon_count: usize,
+        pool: &ThreadPool,
+    ) {
+        retain_top_elements(&mut self.players, player_count, pool);
 
-        self.players.par_iter_mut().for_each(|(_, player_stats)| {
-            player_stats.filter_top_weapons(weapon_count);
+        self.players.iter_mut().for_each(|(_, player_stats)| {
+            player_stats.filter_top_weapons(weapon_count, pool);
         });
     }
 
     /// Filters the top `weapon_count` weapons.
-    pub fn filter_top_weapons(&mut self, weapon_count: usize) {
-        retain_top_elements(&mut self.weapons, weapon_count);
+    /// The filtering is done in parallel using the `pool` parameter.
+    pub fn filter_top_weapons(&mut self, weapon_count: usize, pool: &ThreadPool) {
+        retain_top_elements(&mut self.weapons, weapon_count, pool);
     }
 
     /// Returns the stats of the game in a JSON format.
@@ -122,23 +132,31 @@ impl Stats {
 }
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
     use assert_json_diff::assert_json_eq;
+    use rayon::ThreadPoolBuilder;
     use serde_json::json;
 
     const DEATH_RECORD_1: &str = "AK47,Player1,1.0,0.0,0.0,map,match-id,123,Player2,1.0,100.0,0.0";
     const DEATH_RECORD_2: &str = "AK47,Player2,1.0,0.0,0.0,map,match-id,123,Player1,1.0,100.0,0.0";
     const DEATH_RECORD_3: &str = "M4A4,Player1,1.0,0.0,0.0,map,match-id,123,Player2,1.0,100.0,0.0";
 
+    fn pool() -> ThreadPool {
+        ThreadPoolBuilder::new().num_threads(1).build().unwrap()
+    }
+
+    fn stats_from_deaths(deaths: Vec<&str>) -> Stats {
+        let deaths = deaths
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record.to_string()).unwrap());
+
+        Stats::from_deaths(deaths, &pool())
+    }
+
     #[test]
     fn test_stats_from_deaths() {
-        let deaths = vec![DEATH_RECORD_1.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
-
-        let stats = Stats::from_deaths(deaths);
+        let stats = stats_from_deaths(vec![DEATH_RECORD_1]);
 
         assert_eq!(stats.total_deaths, 1);
         assert_eq!(stats.players.len(), 1);
@@ -147,11 +165,7 @@ mod tests {
 
     #[test]
     fn test_stats_from_multiple_deaths() {
-        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_1.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
-
-        let stats = Stats::from_deaths(deaths);
+        let stats = stats_from_deaths(vec![DEATH_RECORD_1, DEATH_RECORD_1]);
 
         assert_eq!(stats.total_deaths, 2);
         assert_eq!(stats.players.len(), 1);
@@ -160,11 +174,7 @@ mod tests {
 
     #[test]
     fn test_stats_from_multiple_players() {
-        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_2.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
-
-        let stats = Stats::from_deaths(deaths);
+        let stats = stats_from_deaths(vec![DEATH_RECORD_1, DEATH_RECORD_2]);
 
         assert_eq!(stats.total_deaths, 2);
         assert_eq!(stats.players.len(), 2);
@@ -173,11 +183,7 @@ mod tests {
 
     #[test]
     fn test_stats_from_multiple_weapons() {
-        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_3.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
-
-        let stats = Stats::from_deaths(deaths);
+        let stats = stats_from_deaths(vec![DEATH_RECORD_1, DEATH_RECORD_3]);
 
         assert_eq!(stats.total_deaths, 2);
         assert_eq!(stats.players.len(), 1);
@@ -186,16 +192,8 @@ mod tests {
 
     #[test]
     fn test_stats_merge() {
-        let deaths_1 = vec![DEATH_RECORD_1.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
-
-        let deaths_2 = vec![DEATH_RECORD_2.to_string(), DEATH_RECORD_3.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
-
-        let mut stats_1 = Stats::from_deaths(deaths_1);
-        let stats_2 = Stats::from_deaths(deaths_2);
+        let mut stats_1 = stats_from_deaths(vec![DEATH_RECORD_1]);
+        let stats_2 = stats_from_deaths(vec![DEATH_RECORD_2, DEATH_RECORD_3]);
 
         stats_1.merge(stats_2);
 
@@ -206,13 +204,9 @@ mod tests {
 
     #[test]
     fn test_filter_top_killers() {
-        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_2.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
+        let mut stats = stats_from_deaths(vec![DEATH_RECORD_1, DEATH_RECORD_2]);
 
-        let mut stats = Stats::from_deaths(deaths);
-
-        stats.filter_top_killers(1, 1);
+        stats.filter_top_killers(1, 1, &pool());
 
         assert_eq!(stats.players.len(), 1);
         assert_eq!(stats.weapons.len(), 1);
@@ -220,30 +214,18 @@ mod tests {
 
     #[test]
     fn test_filter_top_weapons() {
-        let deaths = vec![
-            DEATH_RECORD_1.to_string(),
-            DEATH_RECORD_1.to_string(),
-            DEATH_RECORD_3.to_string(),
-        ]
-        .into_par_iter()
-        .map(|record| Death::from_csv_record(record).unwrap());
+        let mut stats = stats_from_deaths(vec![DEATH_RECORD_1, DEATH_RECORD_1, DEATH_RECORD_3]);
 
-        let mut stats = Stats::from_deaths(deaths);
-
-        stats.filter_top_weapons(1);
+        stats.filter_top_weapons(1, &pool());
 
         assert_eq!(stats.weapons.len(), 1);
     }
 
     #[test]
     fn test_filter_on_players_tie_resolve_alphabetically() {
-        let deaths = vec![DEATH_RECORD_2.to_string(), DEATH_RECORD_1.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
+        let mut stats = stats_from_deaths(vec![DEATH_RECORD_2, DEATH_RECORD_1]);
 
-        let mut stats = Stats::from_deaths(deaths);
-
-        stats.filter_top_killers(1, 1);
+        stats.filter_top_killers(1, 1, &pool());
 
         assert_eq!(stats.players.len(), 1);
         assert!(stats.players.contains_key("Player1"));
@@ -252,13 +234,9 @@ mod tests {
 
     #[test]
     fn test_filter_on_weapons_tie_resolve_alphabetically() {
-        let deaths = vec![DEATH_RECORD_3.to_string(), DEATH_RECORD_1.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
+        let mut stats = stats_from_deaths(vec![DEATH_RECORD_3, DEATH_RECORD_1]);
 
-        let mut stats = Stats::from_deaths(deaths);
-
-        stats.filter_top_weapons(1);
+        stats.filter_top_weapons(1, &pool());
 
         assert_eq!(stats.weapons.len(), 1);
         assert!(stats.weapons.contains_key("AK47"));
@@ -266,11 +244,7 @@ mod tests {
 
     #[test]
     fn test_json_display() {
-        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_3.to_string()]
-            .into_par_iter()
-            .map(|record| Death::from_csv_record(record).unwrap());
-
-        let stats = Stats::from_deaths(deaths);
+        let stats = stats_from_deaths(vec![DEATH_RECORD_1, DEATH_RECORD_3]);
 
         let json_stats = stats.json_display();
 

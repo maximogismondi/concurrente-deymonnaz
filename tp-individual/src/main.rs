@@ -36,6 +36,7 @@ use args_reading::read_args;
 use deaths::Death;
 use file_reading::{find_csv_in_dir, read_csv_files};
 use json_writting::save_as_json;
+use rayon::ThreadPoolBuilder;
 use stats::Stats;
 use time_tracking::Timer;
 
@@ -48,32 +49,32 @@ const TOP_WEAPONS_OF_PLAYER_COUNT: usize = 3;
 fn main() {
     let (input_path, num_threads, output_file_name) = read_args();
 
-    if let Err(e) = rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build_global()
-    {
-        eprintln!("Error creating thread pool: {}", e);
-        std::process::exit(1);
-    }
+    let pool = match ThreadPoolBuilder::new().num_threads(num_threads).build() {
+        Ok(pool) => pool,
+        Err(e) => {
+            eprintln!("Error creating thread pool: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     let mut timer = Timer::new();
 
     // READ CSV FILES AND PROCESS DEATHS INTO STATS
 
     let csv_files = find_csv_in_dir(&input_path);
-    let deaths = read_csv_files(csv_files, Death::from_csv_record);
+    let deaths = read_csv_files(csv_files, Death::from_csv_record, &pool);
 
-    let mut stats = Stats::from_deaths(deaths);
+    let mut stats = Stats::from_deaths(deaths, &pool);
     timer.print_lap("Processing deaths");
 
     // GET TOP KILLERS AND ITS BEST WEAPONS
 
-    stats.filter_top_killers(TOP_PLAYERS_COUNT, TOP_WEAPONS_OF_PLAYER_COUNT);
+    stats.filter_top_killers(TOP_PLAYERS_COUNT, TOP_WEAPONS_OF_PLAYER_COUNT, &pool);
     timer.print_lap("Filtering top killers");
 
     // GET TOP WEAPONS
 
-    stats.filter_top_weapons(TOP_WEAPONS_COUNT);
+    stats.filter_top_weapons(TOP_WEAPONS_COUNT, &pool);
     timer.print_lap("Filtering top weapons");
 
     // SAVE AS JSON
@@ -92,7 +93,7 @@ mod tests {
     };
 
     use assert_json_diff::assert_json_eq;
-    use rayon::prelude::*;
+    use rayon::{prelude::*, ThreadPoolBuilder};
     use serde_json::json;
     use tempfile::NamedTempFile;
 
@@ -100,10 +101,14 @@ mod tests {
     const DEATH_RECORD_1: &str = "AK47,Player1,1.0,0.0,0.0,map,match-id,123,Player2,1.0,100.0,0.0";
     const DEATH_RECORD_2: &str = "M4A4,Player2,1.0,0.0,0.0,map,match-id,123,Player1,1.0,50.0,0.0";
 
+    fn pool() -> rayon::ThreadPool {
+        ThreadPoolBuilder::new().num_threads(1).build().unwrap()
+    }
+
     #[test]
     fn test_empty_no_csv_files() {
         let csv_files = vec![];
-        let deaths = read_csv_files(csv_files, |_: String| Ok(()));
+        let deaths = read_csv_files(csv_files, |_: String| Ok(()), &pool());
 
         assert_eq!(deaths.count(), 0);
     }
@@ -112,7 +117,7 @@ mod tests {
     fn test_empty_csv_files() {
         let temp_file = NamedTempFile::new().unwrap();
         let csv_files = vec![temp_file.path().to_path_buf()];
-        let deaths = read_csv_files(csv_files, |_: String| Ok(()));
+        let deaths = read_csv_files(csv_files, |_: String| Ok(()), &pool());
 
         assert_eq!(deaths.count(), 0);
     }
@@ -128,7 +133,7 @@ mod tests {
         .unwrap();
 
         let csv_files = vec![temp_file_path];
-        let deaths = read_csv_files(csv_files, |line: String| Ok(line));
+        let deaths = read_csv_files(csv_files, |line: String| Ok(line), &pool());
 
         assert_eq!(deaths.count(), 1);
     }
@@ -144,7 +149,7 @@ mod tests {
         .unwrap();
 
         let csv_files = vec![temp_file_path];
-        let deaths = read_csv_files(csv_files, |line: String| Ok(line));
+        let deaths = read_csv_files(csv_files, |line: String| Ok(line), &pool());
 
         assert_eq!(deaths.count(), 2);
     }
@@ -169,7 +174,7 @@ mod tests {
 
         let csv_files = vec![temp_file_path_1, temp_file_path_2];
 
-        let deaths = read_csv_files(csv_files, |line: String| Ok(line));
+        let deaths = read_csv_files(csv_files, |line: String| Ok(line), &pool());
 
         assert_eq!(deaths.count(), 2);
     }
@@ -184,6 +189,7 @@ mod tests {
             deaths
                 .into_par_iter()
                 .map(|record| Death::from_csv_record(record).unwrap()),
+            &pool(),
         )
     }
 

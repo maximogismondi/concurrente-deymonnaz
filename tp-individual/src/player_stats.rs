@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use rayon::ThreadPool;
+
 use crate::{float_calculations::calculate_percentage, sorting::retain_top_elements};
 
 pub type PlayerWeaponStats = HashMap<String, usize>;
@@ -50,9 +52,13 @@ impl PlayerStats {
     }
 
     /// Filter the top `weapon_count` weapons.
-
-    pub fn filter_top_weapons(&mut self, weapon_count: usize) {
-        retain_top_elements(&mut self.weapons, weapon_count);
+    /// The weapons are retained based on their death count.
+    /// If the player has less weapons than `weapon_count`, all weapons will be kept.
+    /// If the player has no weapons, the weapons map will remain empty.
+    /// If there is a tie, the weapons will be resolved alphabetically.
+    /// The operation is parallelized using the given thread pool.
+    pub fn filter_top_weapons(&mut self, weapon_count: usize, pool: &ThreadPool) {
+        retain_top_elements(&mut self.weapons, weapon_count, pool);
     }
 
     /// Returns the stats of the player in a JSON format.
@@ -79,10 +85,18 @@ impl PlayerStats {
 mod tests {
     use super::*;
     use assert_json_diff::assert_json_eq;
+    use rayon::ThreadPoolBuilder;
     use serde_json::json;
 
     const WEAPON_1: &str = "AK47";
     const WEAPON_2: &str = "M4A4";
+
+    fn pool() -> ThreadPool {
+        ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .expect("Failed to create thread pool")
+    }
 
     #[test]
     fn test_new() {
@@ -162,7 +176,7 @@ mod tests {
         player_stats.add_death(Some(WEAPON_1.to_string()));
         player_stats.add_death(Some(WEAPON_2.to_string()));
 
-        player_stats.filter_top_weapons(1);
+        player_stats.filter_top_weapons(1, &pool());
 
         assert_eq!(player_stats.weapons.len(), 1);
         assert_eq!(player_stats.weapons.get(WEAPON_1), Some(&2));
@@ -174,7 +188,7 @@ mod tests {
         player_stats.add_death(Some(WEAPON_2.to_string()));
         player_stats.add_death(Some(WEAPON_1.to_string()));
 
-        player_stats.filter_top_weapons(1);
+        player_stats.filter_top_weapons(1, &pool());
 
         assert_eq!(player_stats.weapons.len(), 1);
         assert_eq!(player_stats.weapons.get(WEAPON_1), Some(&1));

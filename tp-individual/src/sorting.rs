@@ -1,4 +1,4 @@
-use rayon::prelude::*;
+use rayon::{prelude::*, ThreadPool};
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashMap},
@@ -55,35 +55,47 @@ where
 /// If the map has less elements than `top_count`, all elements will be kept.
 /// If the map is empty, it will remain empty.
 /// The elements are retained based on their `Ord` implementation.
-pub fn retain_top_elements<K, V>(elements: &mut HashMap<K, V>, top_count: usize)
+/// The operation is parallelized using the given thread pool.
+pub fn retain_top_elements<K, V>(elements: &mut HashMap<K, V>, top_count: usize, pool: &ThreadPool)
 where
     K: Hash + Ord + Send,
     V: Ord + Send,
 {
-    let top_elements = elements
-        .drain()
-        .par_bridge()
-        .fold(
-            || CappedMinHeapMap::new(top_count),
-            |mut acc_heap, (key, value)| {
-                acc_heap.push(key, value);
-                acc_heap
-            },
-        )
-        .reduce(
-            || CappedMinHeapMap::new(top_count),
-            |mut acc_heap, local_heap| {
-                acc_heap.merge(local_heap);
-                acc_heap
-            },
-        );
+    pool.install(|| {
+        let top_elements = elements
+            .drain()
+            .par_bridge()
+            .fold(
+                || CappedMinHeapMap::new(top_count),
+                |mut acc_heap, (key, value)| {
+                    acc_heap.push(key, value);
+                    acc_heap
+                },
+            )
+            .reduce(
+                || CappedMinHeapMap::new(top_count),
+                |mut acc_heap, local_heap| {
+                    acc_heap.merge(local_heap);
+                    acc_heap
+                },
+            );
 
-    elements.extend(top_elements.into_iter());
+        elements.extend(top_elements.into_iter());
+    })
 }
 
 #[cfg(test)]
 mod tests {
+    use rayon::ThreadPoolBuilder;
+
     use super::*;
+
+    fn pool() -> ThreadPool {
+        ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .expect("Failed to create thread pool")
+    }
 
     #[test]
     fn test_retain_top_elements() {
@@ -91,7 +103,7 @@ mod tests {
             .into_iter()
             .collect();
 
-        retain_top_elements(&mut elements, 3);
+        retain_top_elements(&mut elements, 3, &pool());
 
         assert_eq!(elements.len(), 3);
         assert_eq!(elements.get(&3), Some(&3));
@@ -103,7 +115,7 @@ mod tests {
     fn test_retain_empty_map() {
         let mut elements: HashMap<usize, usize> = HashMap::new();
 
-        retain_top_elements(&mut elements, 3);
+        retain_top_elements(&mut elements, 3, &pool());
 
         assert!(elements.is_empty());
     }
@@ -112,7 +124,7 @@ mod tests {
     fn test_retain_less_elements_than_capacity() {
         let mut elements = vec![(1, 1), (2, 2)].into_iter().collect();
 
-        retain_top_elements(&mut elements, 3);
+        retain_top_elements(&mut elements, 3, &pool());
 
         assert_eq!(elements.len(), 2);
         assert_eq!(elements.get(&1), Some(&1));
