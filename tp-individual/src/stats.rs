@@ -9,9 +9,9 @@ use crate::{
 
 /// A struct that holds the stats of the game.
 pub struct Stats {
-    pub total_deaths: usize,
-    pub players: HashMap<String, PlayerStats>,
-    pub weapons: HashMap<String, WeaponStats>,
+    total_deaths: usize,
+    players: HashMap<String, PlayerStats>,
+    weapons: HashMap<String, WeaponStats>,
 }
 
 impl Stats {
@@ -88,8 +88,8 @@ impl Stats {
     pub fn filter_top_killers(&mut self, player_count: usize, weapon_count: usize) {
         retain_top_elements(&mut self.players, player_count);
 
-        self.players.iter_mut().for_each(|(_, stats)| {
-            retain_top_elements(&mut stats.weapons, weapon_count);
+        self.players.par_iter_mut().for_each(|(_, player_stats)| {
+            player_stats.filter_top_weapons(weapon_count);
         });
     }
 
@@ -219,24 +219,6 @@ mod tests {
     }
 
     #[test]
-    fn test_filter_top_killers_weapons() {
-        let deaths = vec![
-            DEATH_RECORD_1.to_string(),
-            DEATH_RECORD_1.to_string(),
-            DEATH_RECORD_3.to_string(),
-        ]
-        .into_par_iter()
-        .map(|record| Death::from_csv_record(record).unwrap());
-
-        let mut stats = Stats::from_deaths(deaths);
-
-        stats.filter_top_killers(1, 1);
-
-        assert_eq!(stats.players.len(), 1);
-        assert_eq!(stats.players.get("Player1").unwrap().weapons.len(), 1);
-    }
-
-    #[test]
     fn test_filter_top_weapons() {
         let deaths = vec![
             DEATH_RECORD_1.to_string(),
@@ -251,6 +233,35 @@ mod tests {
         stats.filter_top_weapons(1);
 
         assert_eq!(stats.weapons.len(), 1);
+    }
+
+    #[test]
+    fn test_filter_on_players_tie_resolve_alphabetically() {
+        let deaths = vec![DEATH_RECORD_2.to_string(), DEATH_RECORD_1.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let mut stats = Stats::from_deaths(deaths);
+
+        stats.filter_top_killers(1, 1);
+
+        assert_eq!(stats.players.len(), 1);
+        assert!(stats.players.contains_key("Player1"));
+        assert!(!stats.players.contains_key("Player2"));
+    }
+
+    #[test]
+    fn test_filter_on_weapons_tie_resolve_alphabetically() {
+        let deaths = vec![DEATH_RECORD_3.to_string(), DEATH_RECORD_1.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let mut stats = Stats::from_deaths(deaths);
+
+        stats.filter_top_weapons(1);
+
+        assert_eq!(stats.weapons.len(), 1);
+        assert!(stats.weapons.contains_key("AK47"));
     }
 
     #[test]

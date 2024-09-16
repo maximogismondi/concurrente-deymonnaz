@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
-use crate::float_calculations::calculate_percentage;
+use crate::{float_calculations::calculate_percentage, sorting::retain_top_elements};
 
 pub type PlayerWeaponStats = HashMap<String, usize>;
 
 /// Struct to store the stats of a player.
 #[derive(Eq, PartialEq)]
 pub struct PlayerStats {
-    pub deaths_count: usize,
-    pub weapons: PlayerWeaponStats,
+    deaths_count: usize,
+    weapons: PlayerWeaponStats,
 }
 
 impl PartialOrd for PlayerStats {
@@ -47,6 +47,12 @@ impl PlayerStats {
         for (weapon, count) in other.weapons.into_iter() {
             *self.weapons.entry(weapon).or_insert(0) += count;
         }
+    }
+
+    /// Filter the top `weapon_count` weapons.
+
+    pub fn filter_top_weapons(&mut self, weapon_count: usize) {
+        retain_top_elements(&mut self.weapons, weapon_count);
     }
 
     /// Returns the stats of the player in a JSON format.
@@ -147,6 +153,31 @@ mod tests {
         assert_eq!(player_stats_1.weapons.len(), 2);
         assert_eq!(player_stats_1.weapons.get(WEAPON_1), Some(&3));
         assert_eq!(player_stats_1.weapons.get(WEAPON_2), Some(&1));
+    }
+
+    #[test]
+    fn test_filter_top_weapons() {
+        let mut player_stats = PlayerStats::new();
+        player_stats.add_death(Some(WEAPON_1.to_string()));
+        player_stats.add_death(Some(WEAPON_1.to_string()));
+        player_stats.add_death(Some(WEAPON_2.to_string()));
+
+        player_stats.filter_top_weapons(1);
+
+        assert_eq!(player_stats.weapons.len(), 1);
+        assert_eq!(player_stats.weapons.get(WEAPON_1), Some(&2));
+    }
+
+    #[test]
+    fn test_filter_on_weapons_tie_resolve_alphabetically() {
+        let mut player_stats = PlayerStats::new();
+        player_stats.add_death(Some(WEAPON_2.to_string()));
+        player_stats.add_death(Some(WEAPON_1.to_string()));
+
+        player_stats.filter_top_weapons(1);
+
+        assert_eq!(player_stats.weapons.len(), 1);
+        assert_eq!(player_stats.weapons.get(WEAPON_1), Some(&1));
     }
 
     #[test]
