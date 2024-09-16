@@ -1,9 +1,10 @@
 use crate::float_calculations::{calculate_average, calculate_percentage};
 
+/// Struct to store the stats of a weapon.
 pub struct WeaponStats {
-    pub death_count: usize,
-    pub death_count_with_distance: usize,
-    pub total_distance: f64,
+    death_count: usize,
+    death_count_with_distance: usize,
+    total_distance: f64,
 }
 
 impl Eq for WeaponStats {}
@@ -27,6 +28,7 @@ impl Ord for WeaponStats {
 }
 
 impl WeaponStats {
+    /// Creates a new `WeaponStats` instance.
     pub fn new() -> Self {
         Self {
             death_count: 0,
@@ -35,6 +37,8 @@ impl WeaponStats {
         }
     }
 
+    /// Adds a death count to the weapon stats.
+    /// If the distance is provided, it also increments the death count with distance and adds the distance to the total distance for further calculations.
     pub fn add_death(&mut self, distance: Option<f64>) {
         self.death_count += 1;
         if let Some(distance) = distance {
@@ -43,12 +47,14 @@ impl WeaponStats {
         }
     }
 
+    /// Merges the stats of another `WeaponStats` instance into this one.
     pub fn merge(&mut self, other: &Self) {
         self.death_count += other.death_count;
         self.death_count_with_distance += other.death_count_with_distance;
         self.total_distance += other.total_distance;
     }
 
+    /// Returns the stats of the weapon in a JSON format.
     pub fn json_display(&self, total_deaths: usize) -> serde_json::Value {
         serde_json::json!({
             "deaths_percentage": calculate_percentage(self.death_count, total_deaths),

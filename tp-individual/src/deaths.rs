@@ -1,3 +1,4 @@
+/// Struct to represent a death event in the game.
 pub struct Death {
     pub killed_by: Option<String>,
     pub killer_name: Option<String>,

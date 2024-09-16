@@ -4,6 +4,7 @@ use crate::float_calculations::calculate_percentage;
 
 pub type PlayerWeaponStats = HashMap<String, usize>;
 
+/// Struct to store the stats of a player.
 #[derive(Eq, PartialEq)]
 pub struct PlayerStats {
     pub deaths_count: usize,
@@ -23,6 +24,7 @@ impl Ord for PlayerStats {
 }
 
 impl PlayerStats {
+    /// Creates a new `PlayerStats` instance.
     pub fn new() -> Self {
         Self {
             deaths_count: 0,
@@ -30,6 +32,8 @@ impl PlayerStats {
         }
     }
 
+    /// Increments the death count of the player.
+    /// If the weapon is provided, it also increments the death count of that weapon.
     pub fn add_death(&mut self, weapon: Option<String>) {
         self.deaths_count += 1;
         if let Some(weapon) = weapon {
@@ -37,6 +41,7 @@ impl PlayerStats {
         }
     }
 
+    /// Merges the stats of another `PlayerStats` instance into this one.
     pub fn merge(&mut self, other: Self) {
         self.deaths_count += other.deaths_count;
         for (weapon, count) in other.weapons.into_iter() {
@@ -44,6 +49,7 @@ impl PlayerStats {
         }
     }
 
+    /// Returns the stats of the player in a JSON format.
     pub fn json_display(&self) -> serde_json::Value {
         let weapon_stats = self
             .weapons

@@ -5,6 +5,8 @@ use std::{
     hash::Hash,
 };
 
+/// A capped min heap map.
+/// It will keep the top `capacity` elements.
 struct CappedMinHeapMap<K, V> {
     heap: BinaryHeap<(Reverse<V>, K)>,
     capacity: usize,
@@ -15,6 +17,7 @@ where
     K: Ord,
     V: Ord,
 {
+    /// Creates a new `CappedMinHeapMap` instance.
     fn new(capacity: usize) -> Self {
         Self {
             heap: BinaryHeap::new(),
@@ -22,6 +25,8 @@ where
         }
     }
 
+    /// Pushes a key-value pair into the heap.
+    /// If the heap is full, it will remove the smallest element.
     fn push(&mut self, key: K, value: V) {
         self.heap.push((Reverse(value), key));
 
@@ -30,12 +35,14 @@ where
         }
     }
 
+    /// Consumes the heap and returns an iterator with the key-value pairs.
     fn into_iter(self) -> impl Iterator<Item = (K, V)> {
         self.heap
             .into_iter()
             .map(|(Reverse(value), key)| (key, value))
     }
 
+    /// Merges another `CappedMinHeapMap` into this one.
     fn merge(&mut self, other: Self) {
         for (key, value) in other.into_iter() {
             self.push(key, value);
@@ -43,6 +50,11 @@ where
     }
 }
 
+/// Retains the top `top_count` elements in the given map.
+/// The map will be modified in place.
+/// If the map has less elements than `top_count`, all elements will be kept.
+/// If the map is empty, it will remain empty.
+/// The elements are retained based on their `Ord` implementation.
 pub fn retain_top_elements<K, V>(elements: &mut HashMap<K, V>, top_count: usize)
 where
     K: Hash + Ord + Send,

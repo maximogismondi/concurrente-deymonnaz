@@ -1,3 +1,26 @@
+//! PUBG Death Analyzer
+//!
+//! This program reads a set of CSV files containing information about deaths in a PUBG match and generates a JSON file with statistics about the match.
+//! The statistics include the top killers, the top weapons, and the average distance of the kills.
+//! The program is parallelized to process the CSV files concurrently.
+//! The program uses the Rayon library to parallelize the processing of the CSV files.
+//!
+//! # Usage
+//!
+//! The program receives the following arguments:
+//!
+//! - The path to the directory containing the CSV files.
+//! - The number of threads to use for processing the CSV files.
+//! - The name of the output JSON file.
+//!
+//! ## Example
+//!
+//! ```sh
+//! cargo run --release dataset/ 4 output.json
+//! ```
+//!
+//! This command will process the CSV files in the `dataset/` directory using 4 threads and save the output to the `output.json` file.
+
 mod args_reading;
 mod deaths;
 mod file_reading;

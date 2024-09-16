@@ -1,3 +1,4 @@
+/// Calculate the percentage of a count in relation to a total.
 pub fn calculate_percentage(count: usize, total: usize) -> f64 {
     if total == 0 {
         0.0
@@ -6,6 +7,7 @@ pub fn calculate_percentage(count: usize, total: usize) -> f64 {
     }
 }
 
+/// Calculate the average of a distance in relation to a count.
 pub fn calculate_average(distance: f64, count: usize) -> f64 {
     if count == 0 {
         0.0

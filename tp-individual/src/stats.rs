@@ -7,6 +7,7 @@ use crate::{
     weapon_stats::WeaponStats,
 };
 
+/// A struct that holds the stats of the game.
 pub struct Stats {
     pub total_deaths: usize,
     pub players: HashMap<String, PlayerStats>,
@@ -14,6 +15,7 @@ pub struct Stats {
 }
 
 impl Stats {
+    /// Creates a new `Stats` instance from a parallel iterator of `Death` instances.
     pub fn from_deaths(deaths: impl ParallelIterator<Item = Death>) -> Stats {
         deaths
             .fold(
@@ -60,6 +62,7 @@ impl Stats {
             )
     }
 
+    /// Merges another `Stats` instance into this one.
     fn merge(&mut self, other: Stats) {
         self.total_deaths += other.total_deaths;
 
@@ -81,6 +84,7 @@ impl Stats {
         }
     }
 
+    /// Filters the top `player_count` players and the top `weapon_count` weapons of each player.
     pub fn filter_top_killers(&mut self, player_count: usize, weapon_count: usize) {
         retain_top_elements(&mut self.players, player_count);
 
@@ -89,13 +93,13 @@ impl Stats {
         });
     }
 
+    /// Filters the top `weapon_count` weapons.
     pub fn filter_top_weapons(&mut self, weapon_count: usize) {
         retain_top_elements(&mut self.weapons, weapon_count);
     }
 
+    /// Returns the stats of the game in a JSON format.
     pub fn json_display(&self) -> serde_json::Value {
-        // asume top_killers and top_weapons can be displayed as json as well
-
         let top_killers = self
             .players
             .iter()
@@ -116,7 +120,6 @@ impl Stats {
         })
     }
 }
-// implement display for Stats
 
 #[cfg(test)]
 
