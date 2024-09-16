@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::float_calculations::calculate_percentage;
+
 pub type PlayerWeaponStats = HashMap<String, usize>;
 
 #[derive(Eq, PartialEq)]
@@ -41,11 +43,31 @@ impl PlayerStats {
             *self.weapons.entry(weapon).or_insert(0) += count;
         }
     }
+
+    pub fn json_display(&self) -> serde_json::Value {
+        let weapon_stats = self
+            .weapons
+            .iter()
+            .map(|(weapon_name, weapon_death_count)| {
+                (
+                    weapon_name,
+                    calculate_percentage(*weapon_death_count, self.deaths_count),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        serde_json::json!({
+            "deaths": self.deaths_count,
+            "weapons_percentage": weapon_stats,
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_json_diff::assert_json_eq;
+    use serde_json::json;
 
     const WEAPON_1: &str = "AK47";
     const WEAPON_2: &str = "M4A4";
@@ -119,5 +141,25 @@ mod tests {
         assert_eq!(player_stats_1.weapons.len(), 2);
         assert_eq!(player_stats_1.weapons.get(WEAPON_1), Some(&3));
         assert_eq!(player_stats_1.weapons.get(WEAPON_2), Some(&1));
+    }
+
+    #[test]
+    fn test_json_display() {
+        let mut player_stats = PlayerStats::new();
+        player_stats.add_death(Some(WEAPON_1.to_string()));
+        player_stats.add_death(Some(WEAPON_1.to_string()));
+        player_stats.add_death(Some(WEAPON_2.to_string()));
+
+        let json = player_stats.json_display();
+
+        let expected_json = json!({
+            "deaths": 3,
+            "weapons_percentage": {
+                WEAPON_1: 66.67,
+                WEAPON_2: 33.33,
+            },
+        });
+
+        assert_json_eq!(expected_json, json);
     }
 }

@@ -92,12 +92,38 @@ impl Stats {
     pub fn filter_top_weapons(&mut self, weapon_count: usize) {
         retain_top_elements(&mut self.weapons, weapon_count);
     }
+
+    pub fn json_display(&self) -> serde_json::Value {
+        // asume top_killers and top_weapons can be displayed as json as well
+
+        let top_killers = self
+            .players
+            .iter()
+            .map(|(player_name, player_stats)| (player_name, player_stats.json_display()))
+            .collect::<HashMap<_, _>>();
+
+        let top_weapons = self
+            .weapons
+            .iter()
+            .map(|(weapon_name, weapon_stats)| {
+                (weapon_name, weapon_stats.json_display(self.total_deaths))
+            })
+            .collect::<HashMap<_, _>>();
+
+        serde_json::json!({
+            "top_killers": top_killers,
+            "top_weapons": top_weapons,
+        })
+    }
 }
+// implement display for Stats
 
 #[cfg(test)]
 
 mod tests {
     use super::*;
+    use assert_json_diff::assert_json_eq;
+    use serde_json::json;
 
     const DEATH_RECORD_1: &str = "AK47,Player1,1.0,0.0,0.0,map,match-id,123,Player2,1.0,100.0,0.0";
     const DEATH_RECORD_2: &str = "AK47,Player2,1.0,0.0,0.0,map,match-id,123,Player1,1.0,100.0,0.0";
@@ -222,5 +248,40 @@ mod tests {
         stats.filter_top_weapons(1);
 
         assert_eq!(stats.weapons.len(), 1);
+    }
+
+    #[test]
+    fn test_json_display() {
+        let deaths = vec![DEATH_RECORD_1.to_string(), DEATH_RECORD_3.to_string()]
+            .into_par_iter()
+            .map(|record| Death::from_csv_record(record).unwrap());
+
+        let stats = Stats::from_deaths(deaths);
+
+        let json_stats = stats.json_display();
+
+        let expected_json = json!({
+            "top_killers": {
+                "Player1": {
+                    "deaths": 2,
+                    "weapons_percentage": {
+                        "AK47": 50.0,
+                        "M4A4": 50.0
+                    }
+                }
+            },
+            "top_weapons": {
+                "AK47": {
+                    "deaths_percentage": 50.0,
+                    "average_distance": 100.0
+                },
+                "M4A4": {
+                    "deaths_percentage": 50.0,
+                    "average_distance": 100.0
+                }
+            }
+        });
+
+        assert_json_eq!(expected_json, json_stats);
     }
 }

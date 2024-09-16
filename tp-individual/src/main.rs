@@ -1,6 +1,7 @@
 mod args_reading;
 mod deaths;
 mod file_reading;
+mod float_calculations;
 mod json_writting;
 mod player_stats;
 mod sorting;
@@ -63,14 +64,10 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use crate::{
-        deaths::Death,
-        file_reading::read_csv_files,
-        json_writting::save_as_json,
-        player_stats::{self, PlayerStats},
-        stats::Stats,
-        weapon_stats::WeaponStats,
+        deaths::Death, file_reading::read_csv_files, json_writting::save_as_json, stats::Stats,
         PADRON,
     };
+
     use assert_json_diff::assert_json_eq;
     use rayon::prelude::*;
     use serde_json::json;
@@ -99,14 +96,15 @@ mod tests {
 
     #[test]
     fn test_single_csv_file() {
-        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file_path = tempfile::NamedTempFile::new().unwrap().path().to_path_buf();
+
         std::fs::write(
-            temp_file.path(),
-            format!("{}\n{}", HEADER, DEATH_RECORD_1).as_bytes(),
+            temp_file_path.clone(),
+            format!("{}\n{}", HEADER, DEATH_RECORD_1),
         )
         .unwrap();
 
-        let csv_files = vec![temp_file.path().to_path_buf()];
+        let csv_files = vec![temp_file_path];
         let deaths = read_csv_files(csv_files, |line: String| Ok(line));
 
         assert_eq!(deaths.count(), 1);
@@ -114,14 +112,15 @@ mod tests {
 
     #[test]
     fn test_multiline_csv_file() {
-        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file_path = tempfile::NamedTempFile::new().unwrap().path().to_path_buf();
+
         std::fs::write(
-            temp_file.path(),
-            format!("{}\n{}\n{}", HEADER, DEATH_RECORD_1, DEATH_RECORD_1).as_bytes(),
+            temp_file_path.clone(),
+            format!("{}\n{}\n{}", HEADER, DEATH_RECORD_1, DEATH_RECORD_2),
         )
         .unwrap();
 
-        let csv_files = vec![temp_file.path().to_path_buf()];
+        let csv_files = vec![temp_file_path];
         let deaths = read_csv_files(csv_files, |line: String| Ok(line));
 
         assert_eq!(deaths.count(), 2);
@@ -129,24 +128,24 @@ mod tests {
 
     #[test]
     fn test_multiple_csv_files() {
-        let temp_file_1 = NamedTempFile::new().unwrap();
+        let temp_file_path_1 = tempfile::NamedTempFile::new().unwrap().path().to_path_buf();
+
         std::fs::write(
-            temp_file_1.path(),
-            format!("{}\n{}", HEADER, DEATH_RECORD_1).as_bytes(),
+            temp_file_path_1.clone(),
+            format!("{}\n{}", HEADER, DEATH_RECORD_1),
         )
         .unwrap();
 
-        let temp_file_2 = NamedTempFile::new().unwrap();
+        let temp_file_path_2 = tempfile::NamedTempFile::new().unwrap().path().to_path_buf();
+
         std::fs::write(
-            temp_file_2.path(),
-            format!("{}\n{}", HEADER, DEATH_RECORD_1).as_bytes(),
+            temp_file_path_2.clone(),
+            format!("{}\n{}", HEADER, DEATH_RECORD_2),
         )
         .unwrap();
 
-        let csv_files = vec![
-            temp_file_1.path().to_path_buf(),
-            temp_file_2.path().to_path_buf(),
-        ];
+        let csv_files = vec![temp_file_path_1, temp_file_path_2];
+
         let deaths = read_csv_files(csv_files, |line: String| Ok(line));
 
         assert_eq!(deaths.count(), 2);

@@ -1,3 +1,5 @@
+use crate::float_calculations::{calculate_average, calculate_percentage};
+
 pub struct WeaponStats {
     pub death_count: usize,
     pub death_count_with_distance: usize,
@@ -46,10 +48,20 @@ impl WeaponStats {
         self.death_count_with_distance += other.death_count_with_distance;
         self.total_distance += other.total_distance;
     }
+
+    pub fn json_display(&self, total_deaths: usize) -> serde_json::Value {
+        serde_json::json!({
+            "deaths_percentage": calculate_percentage(self.death_count, total_deaths),
+            "average_distance": calculate_average(self.total_distance, self.death_count_with_distance),
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use assert_json_diff::assert_json_eq;
+    use serde_json::json;
+
     use super::*;
 
     #[test]
@@ -108,5 +120,22 @@ mod tests {
         assert_eq!(weapon_stats_1.death_count, 3);
         assert_eq!(weapon_stats_1.death_count_with_distance, 2);
         assert_eq!(weapon_stats_1.total_distance, 300.0);
+    }
+
+    #[test]
+    fn test_json_display() {
+        let mut weapon_stats = WeaponStats::new();
+
+        weapon_stats.add_death(Some(100.0));
+        weapon_stats.add_death(Some(200.0));
+
+        let json = weapon_stats.json_display(2);
+
+        let expected_json = json!({
+            "deaths_percentage": 100.0,
+            "average_distance": 150.0,
+        });
+
+        assert_json_eq!(expected_json, json);
     }
 }
