@@ -20,7 +20,13 @@ pub fn read_args() -> (String, usize, String) {
     let output_file = args[3].to_string();
 
     let threads = match args[2].parse() {
-        Ok(threads) => threads,
+        Ok(threads) => {
+            if threads == 0 {
+                eprintln!("Invalid number of threads");
+                std::process::exit(1);
+            }
+            threads
+        }
         Err(_) => {
             eprintln!("Invalid number of threads");
             std::process::exit(1);
