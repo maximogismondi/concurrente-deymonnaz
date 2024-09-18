@@ -15,53 +15,48 @@ pub struct Stats {
 }
 
 impl Stats {
+    /// Creates a new empty `Stats` instance.
+    fn new() -> Self {
+        Self {
+            total_deaths: 0,
+            players: HashMap::new(),
+            weapons: HashMap::new(),
+        }
+    }
+
     /// Creates a new `Stats` instance from a parallel iterator of `Death` instances.
     /// The `pool` parameter is used to parallelize the processing of the deaths.
     pub fn from_deaths(deaths: impl ParallelIterator<Item = Death>, pool: &ThreadPool) -> Self {
         pool.install(|| {
             deaths
-                .fold(
-                    || Stats {
-                        total_deaths: 0,
-                        players: HashMap::new(),
-                        weapons: HashMap::new(),
-                    },
-                    |mut acc, death| {
-                        acc.total_deaths += 1;
+                .fold(Stats::new, |mut acc, death| {
+                    acc.total_deaths += 1;
 
-                        let death_distance = death.distance();
-                        let killer_name = death.killer_name;
-                        let killed_by = death.killed_by;
-                        let killed_by_clone = killed_by.clone();
+                    let death_distance = death.distance();
+                    let killer_name = death.killer_name;
+                    let killed_by = death.killed_by;
+                    let killed_by_clone = killed_by.clone();
 
-                        if let Some(killer_name) = killer_name {
-                            acc.players
-                                .entry(killer_name)
-                                .or_insert_with(PlayerStats::new)
-                                .add_death(killed_by_clone);
-                        }
+                    if let Some(killer_name) = killer_name {
+                        acc.players
+                            .entry(killer_name)
+                            .or_insert_with(PlayerStats::new)
+                            .add_death(killed_by_clone);
+                    }
 
-                        if let Some(killed_by) = killed_by {
-                            acc.weapons
-                                .entry(killed_by)
-                                .or_insert_with(WeaponStats::new)
-                                .add_death(death_distance);
-                        }
+                    if let Some(killed_by) = killed_by {
+                        acc.weapons
+                            .entry(killed_by)
+                            .or_insert_with(WeaponStats::new)
+                            .add_death(death_distance);
+                    }
 
-                        acc
-                    },
-                )
-                .reduce(
-                    || Stats {
-                        total_deaths: 0,
-                        players: HashMap::new(),
-                        weapons: HashMap::new(),
-                    },
-                    |mut acc1, acc2| {
-                        acc1.merge(acc2);
-                        acc1
-                    },
-                )
+                    acc
+                })
+                .reduce(Stats::new, |mut acc1, acc2| {
+                    acc1.merge(acc2);
+                    acc1
+                })
         })
     }
 
