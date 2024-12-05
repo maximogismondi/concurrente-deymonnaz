@@ -1,0 +1,78 @@
+{
+    "drivers": [
+        {
+            "id": 1,
+            "address": "127.0.0.1:10001",
+            "position": {
+                "x": 1,
+                "y": 1
+            }
+        },
+        {
+            "id": 2,
+            "address": "127.0.0.1:10002",
+            "position": {
+                "x": 2,
+                "y": 2
+            }
+        },
+        {
+            "id": 3,
+            "address": "127.0.0.1:10003",
+            "position": {
+                "x": 3,
+                "y": 3
+            }
+        },
+        {
+            "id": 4,
+            "address": "127.0.0.1:10004",
+            "position": {
+                "x": 4,
+                "y": 4
+            }
+        },
+        {
+            "id": 5,
+            "address": "127.0.0.1:10005",
+            "position": {
+                "x": 5,
+                "y": 5
+            }
+        }
+    ],
+    "passengers": [
+        {
+            "id": 1,
+            "address": "127.0.0.1:20001",
+            "origin": {
+                "x": 1,
+                "y": 1
+            },
+            "destination": {
+                "x": 3,
+                "y": 3
+            }
+        },
+        {
+            "id": 2,
+            "address": "127.0.0.1:20002",
+            "origin": {
+                "x": 2,
+                "y": 2
+            },
+            "destination": {
+                "x": 5,
+                "y": 5
+            }
+        }
+    ],
+    "gateways": [
+        {
+            "id": 1,
+            "address": "127.0.0.1:30001"
+        }
+    ],
+    "gateway_accept_rate": 1.0,
+    "driver_accept_rate": 1.0
+}

@@ -1,0 +1,3 @@
+[workspace]
+members = [ "common", "driver","passenger", "gateway"]
+resolver = "2"
