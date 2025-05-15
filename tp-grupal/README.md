@@ -41,13 +41,13 @@ Si no se encuentra chofer disponible, el chofer-lider informa que el viaje es ca
 - De la misma forma al recibir un mensaje ELECTION, si el chofer tiene un id mayor al del chofer que envió el mensaje, este responde con un mensaje OK y seguirá propagando el mensaje ELECTION.
 - El chofer que propague el mensaje y no tenga una respuesta OK, ya sea porque no hay más choferes con id mayor o porque no tuvo respuesta de aquellos con id mayor, se autoproclamará lider y enviará un mensaje COORDINATOR a todos los choferes de la red.
 
-![Lider 1](/imgs/Lider1.png)
+![Lider 1](./imgs/Lider1.png)
 
-![Lider 2](/imgs/Lider2.png)
+![Lider 2](./imgs/Lider2.png)
 
-![Lider 3](/imgs/Lider3.png)
+![Lider 3](./imgs/Lider3.png)
 
-![Lider 4](/imgs/Lider4.png)
+![Lider 4](./imgs/Lider4.png)
 
 ### Pago y desconexiones
 
@@ -62,11 +62,11 @@ Si no se encuentra chofer disponible, el chofer-lider informa que el viaje es ca
   - Los pasajeros y choferes podrán comunicarse con cualquier gateway de pago, y no necesariamente siempre con el mismo. Si intenta comunicarse con un gateway y este no responde, intentará conectarse con otro y asi hasta obtener respuesta.
   - Todos los gateways modificarán los pagos de los viajes en curso, los que estarán protegidos bajo un RWlock distribuido entre todos los gateways de la red. Esto garantiza la consistencia y la integridad de los datos.
 
-![Gateway 1](/imgs/Gateway1.png)
+![Gateway 1](./imgs/Gateway1.png)
 
-![Gateway 2](/imgs/Gateway2.png)
+![Gateway 2](./imgs/Gateway2.png)
 
-![Gateway ERROR](/imgs/GatewayERROR.png)
+![Gateway ERROR](./imgs/GatewayERROR.png)
 
 ## Descripción de entidades involucradas
 
@@ -380,29 +380,29 @@ struct Coordinate {
 
 El flujo de mensajes convencional es el siguiente:
 
-![Gateway](/imgs/Gateway.png)
+![Gateway](./imgs/Gateway.png)
 
 Si el pago es aceptado:
 
-![Solicitud](/imgs/Solicitud.png)
+![Solicitud](./imgs/Solicitud.png)
 
 Si no hay choferes disponibles:
 
-![Solicitud Rechazada](/imgs/SolicitudRechazada.png)
+![Solicitud Rechazada](./imgs/SolicitudRechazada.png)
 
 Si hay choferes disponibles:
 
-![Solicitud Aprobada](/imgs/SolicitudAprobada.png)
+![Solicitud Aprobada](./imgs/SolicitudAprobada.png)
 
 Cuando el chofer llega al origen del viaje:
 
-![Subir](/imgs/Subir.png)
+![Subir](./imgs/Subir.png)
 
 Cuando el chofer llega al destino del viaje:
 
-![Liberacion](/imgs/Liberacion.png)
+![Liberacion](./imgs/Liberacion.png)
 
-![FinViaje](/imgs/FinViaje.png)
+![FinViaje](./imgs/FinViaje.png)
 
 ## Cambios realizado desde la primera entrega
 
